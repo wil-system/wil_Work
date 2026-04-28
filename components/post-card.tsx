@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { MessageSquare, Paperclip, Pin, FileSpreadsheet, FileText, Image as ImageIcon, File } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { getProfile } from '@/lib/mock-data';
 import type { Post, Attachment } from '@/lib/types';
 
 const ATTACH_ICON: Record<string, React.ElementType> = {
   xls: FileSpreadsheet, pdf: FileText, image: ImageIcon,
   doc: FileText, zip: File, other: File,
 };
+
+type ProfileInfo = { name: string; position: string; role: string; avatarInitial: string; avatarColor: string };
 
 function AttachmentChip({ attachment }: { attachment: Attachment }) {
   const Icon = ATTACH_ICON[attachment.type] ?? File;
@@ -32,13 +33,17 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-export default function PostCard({ post }: { post: Post }) {
+interface PostCardProps {
+  post: Post;
+  profiles?: Record<string, ProfileInfo>;
+}
+
+export default function PostCard({ post, profiles = {} }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
-  const author = getProfile(post.authorId)!;
+  const author = profiles[post.authorId] ?? { name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#999' };
 
   return (
     <article className="card animate-fade-up">
-      {/* Header */}
       <div className="px-5 pt-4 pb-3 flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <Avatar initial={author.avatarInitial} color={author.avatarColor} size="md" />
@@ -53,10 +58,8 @@ export default function PostCard({ post }: { post: Post }) {
         {post.isPinned && <Pin size={13} className="text-[var(--indigo-500)] mt-0.5" />}
       </div>
 
-      {/* Divider */}
       <div className="border-t mx-5" style={{ borderColor: 'var(--line)' }} />
 
-      {/* Body */}
       <div className="px-5 py-3">
         {post.title && (
           <h2 className="text-[14px] font-bold text-[var(--foreground)] mb-1.5">{post.title}</h2>
@@ -72,7 +75,6 @@ export default function PostCard({ post }: { post: Post }) {
         )}
       </div>
 
-      {/* Footer */}
       <div className="border-t mx-5 pt-2 pb-3 flex items-center gap-2" style={{ borderColor: 'var(--line)' }}>
         <button
           onClick={() => setShowComments(o => !o)}
@@ -90,11 +92,10 @@ export default function PostCard({ post }: { post: Post }) {
         )}
       </div>
 
-      {/* Comments */}
       {showComments && post.comments.length > 0 && (
         <div className="border-t bg-[var(--stone-50)] rounded-b-[14px]" style={{ borderColor: 'var(--line)' }}>
           {post.comments.map(comment => {
-            const ca = getProfile(comment.authorId)!;
+            const ca = profiles[comment.authorId] ?? { name: '알 수 없음', avatarInitial: '?', avatarColor: '#999' };
             return (
               <div key={comment.id} className="px-5 py-3 flex gap-2.5 border-b last:border-0" style={{ borderColor: 'var(--line)' }}>
                 <Avatar initial={ca.avatarInitial} color={ca.avatarColor} size="sm" />

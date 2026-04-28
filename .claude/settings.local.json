@@ -13,7 +13,9 @@
       "Bash(git credential *)",
       "Bash(bash *)",
       "Bash(git commit *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

@@ -1,14 +1,20 @@
+import { redirect } from 'next/navigation';
 import Topbar from '@/components/topbar';
-import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Building, Briefcase, Calendar } from 'lucide-react';
-import { getProfile, CURRENT_USER_ID } from '@/lib/mock-data';
+import { getCurrentProfile } from '@/lib/db/profiles';
+import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
-export default function ProfilePage() {
-  const user = getProfile(CURRENT_USER_ID)!;
+export default async function ProfilePage() {
+  const [user, unreadCount] = await Promise.all([
+    getCurrentProfile(),
+    getUnreadNotificationCount(),
+  ]);
+  if (!user) redirect('/login');
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="내 프로필" />
+      <Topbar title="내 프로필" currentUser={user} unreadCount={unreadCount} />
       <div className="flex-1 overflow-y-auto px-6 py-5 max-w-xl">
         <div className="card p-6">
           <div className="flex items-center gap-4 mb-6">

@@ -2,7 +2,9 @@ import Topbar from '@/components/topbar';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
-import { mockWorkReports, getProfile } from '@/lib/mock-data';
+import { getTodayReports } from '@/lib/db/reports';
+import { getCurrentProfile, getAllProfiles } from '@/lib/db/profiles';
+import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import type { WorkReport } from '@/lib/types';
 
 const STATUS_MAP: Record<WorkReport['status'], { label: string; variant: 'gray' | 'indigo' | 'green' }> = {
@@ -11,14 +13,23 @@ const STATUS_MAP: Record<WorkReport['status'], { label: string; variant: 'gray' 
   reviewed:  { label: '검토완료', variant: 'green' },
 };
 
-export default function WorkReportPage() {
+export default async function WorkReportPage() {
+  const [reports, user, allProfiles, unreadCount] = await Promise.all([
+    getTodayReports(),
+    getCurrentProfile(),
+    getAllProfiles(),
+    getUnreadNotificationCount(),
+  ]);
+
+  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', '');
+  const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="업무보고" subtitle="일일 업무 현황을 기록하고 공유하세요" />
+      <Topbar title="업무보고" subtitle="일일 업무 현황을 기록하고 공유하세요" currentUser={user!} unreadCount={unreadCount} />
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
-          {/* Write report */}
           <div className="xl:col-span-1">
             <div className="card p-5">
               <h2 className="text-[14px] font-bold text-[var(--foreground)] mb-4">오늘 업무보고 작성</h2>
@@ -42,11 +53,13 @@ export default function WorkReportPage() {
             </div>
           </div>
 
-          {/* Team reports */}
           <div className="xl:col-span-2 space-y-4">
-            <h2 className="text-[14px] font-bold text-[var(--foreground)]">팀원 업무보고 — 2026.04.28</h2>
-            {mockWorkReports.map(report => {
-              const author = getProfile(report.authorId)!;
+            <h2 className="text-[14px] font-bold text-[var(--foreground)]">팀원 업무보고 — {today}</h2>
+            {reports.length === 0 ? (
+              <div className="card p-12 text-center text-[var(--muted)] text-[13px]">오늘 제출된 업무보고가 없습니다.</div>
+            ) : reports.map(report => {
+              const author = profileMap[report.authorId];
+              if (!author) return null;
               const status = STATUS_MAP[report.status];
               const pending = report.plannedTasks.filter(t => !report.completedTasks.includes(t));
               return (

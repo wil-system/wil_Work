@@ -1,17 +1,27 @@
 import Topbar from '@/components/topbar';
 import PostCard from '@/components/post-card';
 import Composer from '@/components/composer';
-import { getPostsForBoard } from '@/lib/mock-data';
+import { getPostsForBoard } from '@/lib/db/posts';
+import { getCurrentProfile, getAllProfiles } from '@/lib/db/profiles';
+import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
-export default function FeedPage() {
-  const posts = getPostsForBoard('feed');
+export default async function FeedPage() {
+  const [posts, user, allProfiles, unreadCount] = await Promise.all([
+    getPostsForBoard('feed'),
+    getCurrentProfile(),
+    getAllProfiles(),
+    getUnreadNotificationCount(),
+  ]);
+
+  const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="전체 피드" subtitle="오늘 업무 현황을 확인하세요" />
+      <Topbar title="전체 피드" subtitle="오늘 업무 현황을 확인하세요" currentUser={user!} unreadCount={unreadCount} />
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-        <Composer />
+        <Composer boardId="feed" authorId={user!.id} authorInitial={user!.avatarInitial} authorColor={user!.avatarColor} />
         {posts.map(post => (
-          <PostCard key={post.id} post={post} />
+          <PostCard key={post.id} post={post} profiles={profileMap} />
         ))}
       </div>
     </div>

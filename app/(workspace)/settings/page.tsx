@@ -1,5 +1,7 @@
 import Topbar from '@/components/topbar';
 import { Bell, Palette } from 'lucide-react';
+import { getCurrentProfile } from '@/lib/db/profiles';
+import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
 const SECTIONS = [
   {
@@ -21,10 +23,15 @@ const SECTIONS = [
   },
 ];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const [user, unreadCount] = await Promise.all([
+    getCurrentProfile(),
+    getUnreadNotificationCount(),
+  ]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="설정" />
+      <Topbar title="설정" currentUser={user!} unreadCount={unreadCount} />
       <div className="flex-1 overflow-y-auto px-6 py-5 max-w-xl space-y-4">
         {SECTIONS.map(section => (
           <div key={section.title} className="card p-5">

@@ -1,7 +1,9 @@
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { mockCalendarEvents } from '@/lib/mock-data';
+import { getMonthEvents } from '@/lib/db/calendar';
+import { getCurrentProfile } from '@/lib/db/profiles';
+import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -27,23 +29,34 @@ function buildCalendar(year: number, month: number) {
   return cells;
 }
 
-export default function CalendarPage() {
-  const year = 2026, month = 3;
+export default async function CalendarPage() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const [events, user, unreadCount] = await Promise.all([
+    getMonthEvents(year, month),
+    getCurrentProfile(),
+    getUnreadNotificationCount(),
+  ]);
+
   const cells = buildCalendar(year, month);
-  const sorted = [...mockCalendarEvents].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  const today = now.getDate();
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="캘린더" subtitle="일정을 관리하세요" />
+      <Topbar title="캘린더" subtitle="일정을 관리하세요" currentUser={user!} unreadCount={unreadCount} />
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-          {/* Calendar grid */}
           <div className="xl:col-span-2 card p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <button className="p-1 rounded hover:bg-[var(--stone-100)] transition-colors"><ChevronLeft size={16} /></button>
-                <h2 className="text-[15px] font-bold text-[var(--foreground)]">2026년 4월</h2>
+                <h2 className="text-[15px] font-bold text-[var(--foreground)]">
+                  {year}년 {month + 1}월
+                </h2>
                 <button className="p-1 rounded hover:bg-[var(--stone-100)] transition-colors"><ChevronRight size={16} /></button>
               </div>
               <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white" style={{ background: 'var(--indigo-600)' }}>
@@ -57,9 +70,9 @@ export default function CalendarPage() {
             </div>
             <div className="grid grid-cols-7 gap-px bg-[var(--line)]">
               {cells.map((day, i) => {
-                const dateStr = day ? `2026-04-${String(day).padStart(2, '0')}` : '';
-                const events = mockCalendarEvents.filter(e => e.date === dateStr);
-                const isToday = day === 28;
+                const dateStr = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+                const dayEvents = events.filter(e => e.date === dateStr);
+                const isToday = day === today;
                 return (
                   <div key={i} className={`bg-white min-h-[72px] p-1.5 ${day ? 'cursor-pointer hover:bg-[var(--stone-50)]' : 'opacity-30'}`}>
                     {day && (
@@ -67,12 +80,12 @@ export default function CalendarPage() {
                         <div className={`w-6 h-6 flex items-center justify-center rounded-full text-[12px] font-semibold mb-1 ${isToday ? 'bg-[var(--indigo-600)] text-white' : 'text-[var(--stone-700)]'}`}>
                           {day}
                         </div>
-                        {events.slice(0, 2).map(e => (
+                        {dayEvents.slice(0, 2).map(e => (
                           <div key={e.id} className={`text-[9px] font-medium px-1 py-0.5 rounded mb-0.5 truncate ${TYPE_BG[e.type]}`}>
                             {e.title}
                           </div>
                         ))}
-                        {events.length > 2 && <div className="text-[9px] text-[var(--muted)]">+{events.length - 2}개</div>}
+                        {dayEvents.length > 2 && <div className="text-[9px] text-[var(--muted)]">+{dayEvents.length - 2}개</div>}
                       </>
                     )}
                   </div>
@@ -81,10 +94,11 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Upcoming events */}
           <div className="space-y-3">
             <h3 className="text-[13px] font-bold text-[var(--foreground)]">다가오는 일정</h3>
-            {sorted.map(event => (
+            {sorted.length === 0 ? (
+              <div className="card p-8 text-center text-[var(--muted)] text-[12px]">이번 달 일정이 없습니다.</div>
+            ) : sorted.map(event => (
               <div key={event.id} className="card p-4">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <span className="text-[13px] font-semibold text-[var(--foreground)]">{event.title}</span>
