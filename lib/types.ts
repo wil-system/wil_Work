@@ -1,65 +1,96 @@
-import type { LucideIcon } from "lucide-react";
+export type UserRole = 'admin' | 'member';
+export type UserStatus = 'pending' | 'approved' | 'rejected';
 
-export type BoardKind = "company" | "team" | "worklog" | "memo";
-
-export type Board = {
+export interface Profile {
   id: string;
   name: string;
-  kind: BoardKind;
-  unread: number;
-  pinned?: boolean;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  department: string;
+  position: string;
+  avatarInitial: string;
+  avatarColor: string;
+  joinedAt: string;
+}
+
+export interface Board {
+  id: string;
+  name: string;
   description: string;
-  icon: LucideIcon;
-};
+  icon: string;
+  isPublic: boolean;
+  createdAt: string;
+}
 
-export type FeedStatus = "진행중" | "완료" | "보류" | "공유";
+export interface Attachment {
+  id: string;
+  name: string;
+  size: string;
+  type: 'image' | 'pdf' | 'doc' | 'xls' | 'zip' | 'other';
+}
 
-export type FeedItem = {
+export interface Comment {
+  id: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Post {
   id: string;
   boardId: string;
-  author: string;
-  role: string;
-  title: string;
-  body: string;
-  status: FeedStatus;
-  priority: "normal" | "important";
-  tags: string[];
-  mentions: string[];
-  attachments: number;
-  comments: number;
-  updatedAt: string;
-  pinned?: boolean;
-};
-
-export type Attachment = {
-  id: string;
-  postId: string;
-  fileName: string;
-  fileType: string;
-  fileSize: string;
-  uploadedBy: string;
-  uploadedAt: string;
-};
-
-export type ThreadComment = {
-  id: string;
-  author: string;
-  body: string;
+  authorId: string;
+  title?: string;
+  content: string;
+  attachments: Attachment[];
+  comments: Comment[];
+  isPinned: boolean;
   createdAt: string;
-  replies?: ThreadComment[];
-};
+}
 
-export type Notification = {
+export interface WorkReport {
+  id: string;
+  authorId: string;
+  date: string;
+  plannedTasks: string[];
+  completedTasks: string[];
+  issues?: string;
+  status: 'draft' | 'submitted' | 'reviewed';
+}
+
+export interface CalendarEvent {
   id: string;
   title: string;
-  source: string;
-  read: boolean;
-  important?: boolean;
-};
+  date: string;
+  endDate?: string;
+  allDay: boolean;
+  type: 'meeting' | 'deadline' | 'holiday' | 'personal';
+  attendees: string[];
+  description?: string;
+}
 
-export type Participant = {
+export interface Memo {
   id: string;
-  name: string;
-  department: string;
-  role: string;
-};
+  authorId: string;
+  title: string;
+  content: string;
+  tags: string[];
+  isPinned: boolean;
+  updatedAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: 'comment' | 'mention' | 'approval' | 'board' | 'report';
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+  link?: string;
+}
+
+export interface BoardPermission {
+  profileId: string;
+  boardId: string;
+}
