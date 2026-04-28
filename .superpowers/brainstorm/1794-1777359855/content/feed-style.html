@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>피드 스타일 선택</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #f2f0ee;
+    color: #1c1917;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #78716c; margin-bottom: 28px; }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .option-card {
+    background: white;
+    border-radius: 16px;
+    border: 2px solid #e7e5e4;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .option-card:hover {
+    border-color: #6366f1;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+    transform: translateY(-2px);
+  }
+  .option-card.selected {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+  }
+
+  .preview-area {
+    background: #f5f4f2;
+    padding: 14px 12px;
+    min-height: 280px;
+    border-bottom: 1px solid #e7e5e4;
+  }
+
+  .card-label {
+    padding: 14px 16px;
+  }
+  .card-label h3 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .card-label p { font-size: 11px; color: #78716c; line-height: 1.4; }
+
+  /* ---- Style A: Messenger Bubble (current) ---- */
+  .bubble-post {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+  }
+  .bubble-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+    padding-left: 2px;
+  }
+  .avatar-sm {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    background: #1e1b4b;
+    color: #a5b4fc;
+    font-size: 8px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .bubble-body {
+    background: white;
+    border-radius: 3px 12px 12px 12px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    max-width: 100%;
+  }
+  .bubble-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 5px;
+    padding-left: 2px;
+  }
+  .action-chip {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 9px;
+    color: #3730a3;
+    font-weight: 500;
+  }
+
+  /* ---- Style B: Rich Card ---- */
+  .rich-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .rich-card-header {
+    padding: 10px 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .avatar-md {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: #1e1b4b;
+    color: #a5b4fc;
+    font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rich-card-divider {
+    height: 1px;
+    background: #f5f4f2;
+    margin: 8px 12px 0;
+  }
+  .rich-card-body {
+    padding: 8px 12px 10px;
+  }
+  .rich-card-footer {
+    background: #fafaf9;
+    border-top: 1px solid #f0eeed;
+    padding: 7px 12px;
+    display: flex;
+    gap: 6px;
+  }
+
+  /* ---- Style C: Timeline ---- */
+  .timeline-wrap {
+    padding-left: 10px;
+    border-left: 2px solid #e7e5e4;
+    position: relative;
+  }
+  .timeline-dot {
+    position: absolute;
+    left: -5px;
+    top: 10px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #6366f1;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #e0e7ff;
+  }
+  .timeline-post {
+    background: white;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    margin-left: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .timeline-time {
+    font-size: 8px;
+    color: #a8a29e;
+    position: absolute;
+    left: -62px;
+    top: 8px;
+    text-align: right;
+    width: 50px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<h2>피드 게시글 스타일</h2>
+<p class="subtitle">Pretendard + 딥 인디고 + 웜 라이트 기반에서 게시글이 어떻게 보여야 할까요?</p>
+
+<div class="options-grid">
+
+  <!-- A: Messenger Bubble (refined) -->
+  <div class="option-card" onclick="selectOption(this, 'a')">
+    <div class="preview-area">
+      <div style="font-size: 9px; font-weight: 700; color: #1c1917; margin-bottom: 10px; letter-spacing: 0.3px;">전체 피드</div>
+
+      <div class="bubble-post">
+        <div class="bubble-meta">
+          <div class="avatar-sm">김</div>
+          <span style="font-size: 9px; font-weight: 600; color: #1c1917;">김보현</span>
+          <span style="font-size: 8px; color: #a8a29e;">· 총괄 · 방금</span>
+          <span style="margin-left: auto; font-size: 8px; background: #eef2ff; color: #4338ca; padding: 1px 5px; border-radius: 4px; font-weight: 500;">완료</span>
+        </div>
+        <div class="bubble-body">
+          <p style="font-size: 10px; font-weight: 600; color: #1c1917; margin-bottom: 3px;">이번 주 KPI 달성 현황</p>
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">전월 대비 12% 상승했으며<br>목표치를 초과 달성했습니다.</p>
+        </div>
+        <div class="bubble-actions">
+          <span class="action-chip">댓글 3</span>
+          <span class="action-chip">첨부 1</span>
+        </div>
+      </div>
+
+      <div class="bubble-post">
+        <div class="bubble-meta">
+          <div class="avatar-sm" style="background: #7c3aed;">이</div>
+          <span style="font-size: 9px; font-weight: 600; color: #1c1917;">이지수</span>
+          <span style="font-size: 8px; color: #a8a29e;">· 컨텐츠팀 · 1시간</span>
+        </div>
+        <div class="bubble-body">
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">신규 콘텐츠 제작 일정<br>조율 요청드립니다.</p>
+        </div>
+        <div class="bubble-actions">
+          <span class="action-chip">댓글 1</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <h3>A — 메신저 버블 (개선)</h3>
+      <p>현재 방식 유지. 대화 흐름이 자연스럽고 빠르게 스캔됨</p>
+    </div>
+  </div>
+
+  <!-- B: Rich Card -->
+  <div class="option-card" onclick="selectOption(this, 'b')">
+    <div class="preview-area">
+      <div style="font-size: 9px; font-weight: 700; color: #1c1917; margin-bottom: 10px; letter-spacing: 0.3px;">전체 피드</div>
+
+      <div class="rich-card">
+        <div class="rich-card-header">
+          <div class="avatar-md">김</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 10px; font-weight: 700; color: #1c1917;">김보현</span>
+              <span style="font-size: 8px; color: #a8a29e;">방금 전</span>
+            </div>
+            <span style="font-size: 8px; color: #78716c;">총괄 관리자</span>
+          </div>
+        </div>
+        <div class="rich-card-divider"></div>
+        <div class="rich-card-body">
+          <p style="font-size: 10px; font-weight: 700; color: #1c1917; margin-bottom: 4px;">이번 주 KPI 달성 현황</p>
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">전월 대비 12% 상승했으며 목표치를 초과 달성했습니다.</p>
+          <div style="margin-top: 6px; display: flex; gap: 4px;">
+            <span style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 5px; padding: 2px 6px; font-size: 8px; color: #4338ca; font-weight: 500;">완료</span>
+            <span style="background: #fdf4ff; border: 1px solid #e9d5ff; border-radius: 5px; padding: 2px 6px; font-size: 8px; color: #7e22ce; font-weight: 500;">#영업</span>
+          </div>
+        </div>
+        <div class="rich-card-footer">
+          <span style="font-size: 8px; color: #6366f1; font-weight: 600;">댓글 3개</span>
+          <span style="font-size: 8px; color: #a8a29e; margin-left: auto;">첨부 1개</span>
+        </div>
+      </div>
+
+      <div class="rich-card">
+        <div class="rich-card-header">
+          <div class="avatar-md" style="background: #7c3aed;">이</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 10px; font-weight: 700; color: #1c1917;">이지수</span>
+              <span style="font-size: 8px; color: #a8a29e;">1시간 전</span>
+            </div>
+            <span style="font-size: 8px; color: #78716c;">컨텐츠팀</span>
+          </div>
+        </div>
+        <div class="rich-card-body" style="padding-top: 8px;">
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">신규 콘텐츠 제작 일정 조율 요청드립니다.</p>
+        </div>
+        <div class="rich-card-footer">
+          <span style="font-size: 8px; color: #6366f1; font-weight: 600;">댓글 1개</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <h3>B — 리치 카드</h3>
+      <p>Linear·Notion 스타일. 정보 계층이 명확하고 고급스러운 느낌</p>
+    </div>
+  </div>
+
+  <!-- C: Minimal Timeline -->
+  <div class="option-card" onclick="selectOption(this, 'c')">
+    <div class="preview-area" style="padding-left: 18px;">
+      <div style="font-size: 9px; font-weight: 700; color: #1c1917; margin-bottom: 10px; margin-left: -6px;">전체 피드</div>
+
+      <div style="position: relative; padding-left: 18px; border-left: 2px solid #e0e7ff;">
+
+        <div style="position: absolute; left: -5px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #6366f1; border: 2px solid white; box-shadow: 0 0 0 2px #e0e7ff;"></div>
+        <div style="background: white; border-radius: 10px; padding: 9px 11px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+          <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+            <div class="avatar-sm">김</div>
+            <span style="font-size: 9px; font-weight: 700; color: #1c1917;">김보현</span>
+            <span style="font-size: 8px; color: #a8a29e; margin-left: auto;">방금</span>
+          </div>
+          <p style="font-size: 10px; font-weight: 600; color: #1c1917; margin-bottom: 3px;">이번 주 KPI 달성 현황</p>
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">전월 대비 12% 상승, 목표 초과 달성</p>
+          <div style="margin-top: 6px; display: flex; gap: 5px;">
+            <span style="font-size: 8px; color: #6366f1; font-weight: 600;">댓글 3</span>
+            <span style="font-size: 8px; color: #a8a29e;">·</span>
+            <span style="font-size: 8px; color: #a8a29e;">첨부 1</span>
+          </div>
+        </div>
+
+        <div style="position: absolute; left: -5px; top: 102px; width: 8px; height: 8px; border-radius: 50%; background: #a5b4fc; border: 2px solid white; box-shadow: 0 0 0 2px #e0e7ff;"></div>
+        <div style="background: white; border-radius: 10px; padding: 9px 11px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+          <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+            <div class="avatar-sm" style="background: #7c3aed;">이</div>
+            <span style="font-size: 9px; font-weight: 700; color: #1c1917;">이지수</span>
+            <span style="font-size: 8px; color: #a8a29e; margin-left: auto;">1시간</span>
+          </div>
+          <p style="font-size: 9px; color: #57534e; line-height: 1.5;">신규 콘텐츠 제작 일정 조율 요청</p>
+          <div style="margin-top: 6px;">
+            <span style="font-size: 8px; color: #6366f1; font-weight: 600;">댓글 1</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-label">
+      <h3>C — 타임라인</h3>
+      <p>시간 흐름이 명확하고 활동 로그처럼 읽힘. 깔끔하고 절제됨</p>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size: 12px; color: #a8a29e; text-align: center; margin-top: 24px;">클릭으로 선택 후 터미널에서 말씀해 주세요</p>
+
+<script>
+  let selected = null;
+  function selectOption(el, choice) {
+    document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selected = choice;
+    if (window.recordChoice) window.recordChoice(choice, el.querySelector('h3').textContent);
+  }
+</script>
+</body>
+</html>

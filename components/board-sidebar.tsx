@@ -1,130 +1,146 @@
-import { Bell, ChevronDown, Search } from "lucide-react";
-import { boards } from "@/lib/mock-data";
+'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
+  FileText, Calendar, StickyNote, Settings, Shield,
+  ChevronDown, LogOut,
+} from 'lucide-react';
+import { Avatar } from './ui/avatar';
+import { getProfile, getAccessibleBoards, CURRENT_USER_ID } from '@/lib/mock-data';
 
-type BoardSidebarProps = {
-  activeBoardId: string;
-  query: string;
-  onBoardChange: (boardId: string) => void;
-  onQueryChange: (query: string) => void;
+const ICON_MAP: Record<string, React.ElementType> = {
+  LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
 };
 
-export function BoardSidebar({
-  activeBoardId,
-  query,
-  onBoardChange,
-  onQueryChange,
-}: BoardSidebarProps) {
+const WORKSPACE_NAV = [
+  { href: '/work-report', label: '업무보고', icon: FileText },
+  { href: '/calendar',    label: '캘린더',   icon: Calendar },
+  { href: '/memo',        label: '메모장',   icon: StickyNote },
+];
+
+export default function BoardSidebar() {
+  const pathname = usePathname();
+  const [boardsOpen, setBoardsOpen] = useState(true);
+  const currentUser = getProfile(CURRENT_USER_ID)!;
+  const boards = getAccessibleBoards(CURRENT_USER_ID);
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
+
   return (
-    <aside className="flex h-dvh w-full flex-col border-r border-slate-200 bg-white lg:w-72">
-      <div className="border-b border-slate-200 px-4 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-green-700">
-              W.I.L Workspace
-            </p>
-            <h1 className="mt-1 truncate text-xl font-bold text-slate-950">
-              업무 협업툴
-            </h1>
-          </div>
-          <button
-            className="micro-focus micro-lift grid size-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:border-green-200 hover:bg-green-50 hover:text-green-700"
-            aria-label="알림"
-          >
-            <Bell size={18} />
-          </button>
-        </div>
-        <label className="mt-4 flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 transition focus-within:border-green-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-green-500/20">
-          <Search size={16} />
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
-            placeholder="게시글, 담당자, 태그 검색"
-          />
-        </label>
+    <aside
+      className="flex flex-col h-screen w-[220px] flex-shrink-0 select-none"
+      style={{ background: 'var(--bg-sidebar)', boxShadow: 'var(--shadow-sidebar)' }}
+    >
+      {/* Logo */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="text-[11px] font-black tracking-[3px] text-white/90">W · I · L</div>
+        <div className="text-[10px] text-white/40 mt-0.5 tracking-wide">WORKSPACE</div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        <div className="mb-2 flex items-center justify-between px-2 text-xs font-semibold text-slate-500">
-          <span>게시판</span>
-          <ChevronDown size={14} />
-        </div>
-        <div className="space-y-1">
-          {boards.map((board, index) => {
-            const Icon = board.icon;
-            const isActive = activeBoardId === board.id;
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+        {/* Feed */}
+        <NavItem href="/feed" icon={LayoutDashboard} label="전체 피드" active={isActive('/feed')} />
 
+        {/* Boards */}
+        <div className="mt-3">
+          <button
+            onClick={() => setBoardsOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 hover:text-white/50 transition-colors uppercase"
+          >
+            <span>게시판</span>
+            <ChevronDown
+              size={12}
+              className={`transition-transform ${boardsOpen ? '' : '-rotate-90'}`}
+            />
+          </button>
+          {boardsOpen && boards.filter(b => b.id !== 'feed').map(board => {
+            const Icon = ICON_MAP[board.icon] ?? Bell;
             return (
-              <button
+              <NavItem
                 key={board.id}
-                className={`micro-focus group relative flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition duration-200 active:translate-y-px ${
-                  isActive
-                    ? "bg-slate-900 text-white shadow-[0_2px_12px_rgba(15,23,42,0.16)]"
-                    : "text-slate-700 hover:bg-slate-100 hover:shadow-[0_2px_12px_rgba(15,23,42,0.06)]"
-                }`}
-                style={{ animationDelay: `${index * 40}ms` }}
-                onClick={() => onBoardChange(board.id)}
-              >
-                {isActive ? (
-                  <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-green-400" />
-                ) : null}
-                <span
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg transition ${
-                    isActive
-                      ? "bg-white/12 text-white"
-                      : "bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-green-700"
-                  }`}
-                >
-                  <Icon size={16} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate text-sm ${
-                      isActive
-                        ? "font-semibold text-white"
-                        : "font-medium text-slate-800"
-                    }`}
-                  >
-                    {board.name}
-                  </span>
-                  <span
-                    className={`block truncate text-xs ${
-                      isActive ? "text-slate-300" : "text-slate-500"
-                    }`}
-                  >
-                    {board.description}
-                  </span>
-                </span>
-                {board.unread > 0 ? (
-                  <span
-                    className={`grid min-w-6 place-items-center rounded-lg px-1.5 text-xs font-bold ${
-                      isActive
-                        ? "bg-green-400 text-slate-950"
-                        : "bg-green-500 text-white"
-                    }`}
-                  >
-                    {board.unread}
-                  </span>
-                ) : null}
-              </button>
+                href={`/board/${board.id}`}
+                icon={Icon}
+                label={board.name}
+                active={isActive(`/board/${board.id}`)}
+              />
             );
           })}
         </div>
-      </nav>
 
-      <div className="border-t border-slate-200 p-3">
-        <button className="micro-focus flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition duration-200 hover:bg-slate-100 active:translate-y-px">
-          <span className="grid size-9 place-items-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-            BH
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-slate-900">
-              김보현
-            </span>
-            <span className="block text-xs text-slate-500">총괄 관리자</span>
-          </span>
-        </button>
+        {/* Workspace tools */}
+        <div className="mt-3">
+          <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 uppercase">
+            워크스페이스
+          </div>
+          {WORKSPACE_NAV.map(item => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              active={isActive(item.href)}
+            />
+          ))}
+        </div>
+
+        {/* Admin */}
+        {currentUser.role === 'admin' && (
+          <div className="mt-3">
+            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 uppercase">
+              관리자
+            </div>
+            <NavItem
+              href="/admin/approvals"
+              icon={Shield}
+              label="가입 승인"
+              active={isActive('/admin')}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-white/10 p-3 space-y-1">
+        <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} />
+        <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} />
+        <div className="mt-2 flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+          <Avatar initial={currentUser.avatarInitial} color={currentUser.avatarColor} size="sm" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[12px] font-semibold text-white/90 truncate">{currentUser.name}</div>
+            <div className="text-[10px] text-white/40 truncate">{currentUser.position}</div>
+          </div>
+          <LogOut size={13} className="text-white/30 flex-shrink-0" />
+        </div>
       </div>
     </aside>
+  );
+}
+
+function NavItem({
+  href,
+  icon: Icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+        active
+          ? 'bg-[#2d2a45] text-white'
+          : 'text-white/60 hover:text-white/90 hover:bg-white/5'
+      }`}
+    >
+      <Icon size={15} className={active ? 'text-[#818cf8]' : ''} />
+      <span>{label}</span>
+    </Link>
   );
 }
