@@ -45,8 +45,8 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
       style={{ background: 'var(--bg-sidebar)', boxShadow: 'var(--shadow-sidebar)' }}
     >
       <div className="px-5 pt-5 pb-4">
-        <div className="text-[11px] font-black tracking-[3px] text-white/90">W · I · L</div>
-        <div className="text-[10px] text-white/40 mt-0.5 tracking-wide">WORKSPACE</div>
+        <div className="text-[13px] font-black tracking-[2px]" style={{ color: 'var(--indigo-600)' }}>W·I·L</div>
+        <div className="text-[10px] mt-0.5 tracking-wide" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
@@ -55,7 +55,8 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
         <div className="mt-3">
           <button
             onClick={() => setBoardsOpen(o => !o)}
-            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 hover:text-white/50 transition-colors uppercase"
+            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
+            style={{ color: 'var(--stone-400)' }}
           >
             <span>게시판</span>
             <ChevronDown size={12} className={`transition-transform ${boardsOpen ? '' : '-rotate-90'}`} />
@@ -75,7 +76,7 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
         </div>
 
         <div className="mt-3">
-          <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 uppercase">워크스페이스</div>
+          <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>워크스페이스</div>
           {WORKSPACE_NAV.map(item => (
             <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} />
           ))}
@@ -83,25 +84,28 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
 
         {currentUser.role === 'admin' && (
           <div className="mt-3">
-            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-white/30 uppercase">관리자</div>
+            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>관리자</div>
             <NavItem href="/admin/approvals" icon={Shield} label="가입 승인" active={isActive('/admin')} />
           </div>
         )}
       </div>
 
-      <div className="border-t border-white/10 p-3 space-y-1">
+      <div className="p-3 space-y-0.5" style={{ borderTop: '1px solid var(--line)' }}>
         <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} />
         <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} />
         <button
           onClick={handleSignOut}
-          className="mt-2 flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors text-left"
+          className="mt-1 flex items-center gap-2 w-full px-2 py-2 rounded-lg transition-colors text-left"
+          style={{ color: 'var(--stone-600)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--stone-100)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
           <Avatar initial={currentUser.avatarInitial} color={currentUser.avatarColor} size="sm" />
           <div className="flex-1 min-w-0">
-            <div className="text-[12px] font-semibold text-white/90 truncate">{currentUser.name}</div>
-            <div className="text-[10px] text-white/40 truncate">{currentUser.position}</div>
+            <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--foreground)' }}>{currentUser.name}</div>
+            <div className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>{currentUser.position}</div>
           </div>
-          <LogOut size={13} className="text-white/30 flex-shrink-0" />
+          <LogOut size={13} style={{ color: 'var(--stone-400)' }} className="flex-shrink-0" />
         </button>
       </div>
     </aside>
@@ -112,11 +116,15 @@ function NavItem({ href, icon: Icon, label, active }: { href: string; icon: Reac
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-        active ? 'bg-[#2d2a45] text-white' : 'text-white/60 hover:text-white/90 hover:bg-white/5'
-      }`}
+      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors"
+      style={active
+        ? { background: 'var(--bg-sidebar-active)', color: 'var(--indigo-700)' }
+        : { color: 'var(--stone-600)' }
+      }
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-sidebar-hover)'; }}
+      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
     >
-      <Icon size={15} className={active ? 'text-[#818cf8]' : ''} />
+      <Icon size={15} style={{ color: active ? 'var(--indigo-500)' : 'var(--stone-400)' }} />
       <span>{label}</span>
     </Link>
   );
