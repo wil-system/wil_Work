@@ -134,7 +134,7 @@ function ThreadPanel({
             value={reply}
             onChange={e => setReply(e.target.value)}
             placeholder="답글 입력..."
-            className="flex-1 px-3 py-1.5 rounded-lg border text-[12px] outline-none transition-colors"
+            className="flex-1 px-3 py-1.5 rounded-lg border text-[11px] outline-none transition-colors"
             style={{ borderColor: 'rgba(99,102,241,0.2)', background: 'white', color: 'var(--foreground)' }}
             onFocus={e => (e.currentTarget.style.borderColor = 'var(--indigo-400)')}
             onBlur={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.2)')}
@@ -233,7 +233,7 @@ function ChatMessage({
               className="flex items-center gap-1 mt-2.5 text-[10px] font-normal transition-colors hover:underline"
               style={{ color: threadOpen ? 'var(--indigo-500)' : 'var(--stone-400)' }}
             >
-              <MessageSquare size={12} />
+              <MessageSquare size={10} />
               <span>{post.comments.length > 0 ? `${post.comments.length}개 답글` : '답글 달기'}</span>
               {post.comments.length > 0 && (
                 <ChevronDown size={11} className={`transition-transform duration-200 ${threadOpen ? 'rotate-180' : ''}`} />
@@ -415,8 +415,8 @@ export default function ChatFeed({ posts, currentUserId, currentUserProfile, pro
                     handleSend(e as unknown as React.FormEvent);
                   }
                 }}
-                placeholder="메시지 입력... (Enter 전송, Shift+Enter 줄바꿈)"
-                className="w-full px-4 py-2.5 text-[13px] outline-none resize-none bg-transparent"
+                placeholder="메시지를 입력하세요..."
+                className="w-full px-4 py-2.5 text-[12px] outline-none resize-none bg-transparent"
                 style={{ color: 'var(--foreground)', minHeight: '40px' }}
               />
               <div className="flex items-center px-3 pb-2 gap-1">
