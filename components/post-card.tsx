@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { MessageSquare, Paperclip, Pin, FileSpreadsheet, FileText, Image as ImageIcon, File } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { MessageSquare, Paperclip, Pin, FileSpreadsheet, FileText, Image as ImageIcon, File, Send } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import { Badge } from './ui/badge';
+import { createClient } from '@/lib/supabase/client';
 import type { Post, Attachment } from '@/lib/types';
 
 const ATTACH_ICON: Record<string, React.ElementType> = {
@@ -36,11 +38,36 @@ function timeAgo(dateStr: string) {
 interface PostCardProps {
   post: Post;
   profiles?: Record<string, ProfileInfo>;
+  currentUserId?: string;
+  currentUserProfile?: ProfileInfo;
 }
 
-export default function PostCard({ post, profiles = {} }: PostCardProps) {
+export default function PostCard({ post, profiles = {}, currentUserId, currentUserProfile }: PostCardProps) {
+  const router = useRouter();
   const [showComments, setShowComments] = useState(false);
+  const [comment, setComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
   const author = profiles[post.authorId] ?? { name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#999' };
+
+  async function handleCommentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!comment.trim() || !currentUserId) return;
+    setSubmittingComment(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('work_comments').insert({
+        post_id: post.id,
+        author_id: currentUserId,
+        content: comment.trim(),
+      });
+      if (!error) {
+        setComment('');
+        router.refresh();
+      }
+    } finally {
+      setSubmittingComment(false);
+    }
+  }
 
   return (
     <article className="card animate-fade-up">
@@ -92,23 +119,48 @@ export default function PostCard({ post, profiles = {} }: PostCardProps) {
         )}
       </div>
 
-      {showComments && post.comments.length > 0 && (
+      {showComments && (
         <div className="border-t bg-[var(--stone-50)] rounded-b-[14px]" style={{ borderColor: 'var(--line)' }}>
-          {post.comments.map(comment => {
-            const ca = profiles[comment.authorId] ?? { name: '알 수 없음', avatarInitial: '?', avatarColor: '#999' };
+          {post.comments.map(c => {
+            const ca = profiles[c.authorId] ?? { name: '알 수 없음', avatarInitial: '?', avatarColor: '#999' };
             return (
-              <div key={comment.id} className="px-5 py-3 flex gap-2.5 border-b last:border-0" style={{ borderColor: 'var(--line)' }}>
+              <div key={c.id} className="px-5 py-3 flex gap-2.5 border-b last:border-0" style={{ borderColor: 'var(--line)' }}>
                 <Avatar initial={ca.avatarInitial} color={ca.avatarColor} size="sm" />
                 <div>
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-[12px] font-semibold text-[var(--foreground)]">{ca.name}</span>
-                    <span className="text-[10px] text-[var(--muted)]">{timeAgo(comment.createdAt)}</span>
+                    <span className="text-[10px] text-[var(--muted)]">{timeAgo(c.createdAt)}</span>
                   </div>
-                  <p className="text-[12px] text-[var(--stone-700)]">{comment.content}</p>
+                  <p className="text-[12px] text-[var(--stone-700)]">{c.content}</p>
                 </div>
               </div>
             );
           })}
+          {currentUserId && (
+            <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--line)' }}>
+              <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
+                {currentUserProfile && (
+                  <Avatar initial={currentUserProfile.avatarInitial} color={currentUserProfile.avatarColor} size="sm" />
+                )}
+                <input
+                  type="text"
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  placeholder="댓글을 입력하세요..."
+                  className="flex-1 px-3 py-1.5 rounded-lg border text-[12px] outline-none focus:border-[var(--indigo-500)] focus:ring-1 focus:ring-[var(--indigo-100)]"
+                  style={{ borderColor: 'var(--line)', background: 'white' }}
+                />
+                <button
+                  type="submit"
+                  disabled={!comment.trim() || submittingComment}
+                  className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                  style={{ color: 'var(--indigo-600)' }}
+                >
+                  <Send size={14} />
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
     </article>

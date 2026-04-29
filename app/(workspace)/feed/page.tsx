@@ -21,7 +21,13 @@ export default async function FeedPage() {
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
         <Composer boardId="feed" authorId={user!.id} authorInitial={user!.avatarInitial} authorColor={user!.avatarColor} />
         {posts.map(post => (
-          <PostCard key={post.id} post={post} profiles={profileMap} />
+          <PostCard
+            key={post.id}
+            post={post}
+            profiles={profileMap}
+            currentUserId={user!.id}
+            currentUserProfile={profileMap[user!.id]}
+          />
         ))}
       </div>
     </div>

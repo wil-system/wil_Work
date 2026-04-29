@@ -1,14 +1,17 @@
+import { redirect } from 'next/navigation';
 import Topbar from '@/components/topbar';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal } from 'lucide-react';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
+import { toggleMemberRole } from './actions';
 
 export default async function MembersPage() {
-  const [allProfiles, user, unreadCount] = await Promise.all([
+  const user = await getCurrentProfile();
+  if (!user) redirect('/login');
+
+  const [allProfiles, unreadCount] = await Promise.all([
     getAllProfiles(),
-    getCurrentProfile(),
     getUnreadNotificationCount(),
   ]);
 
@@ -20,7 +23,7 @@ export default async function MembersPage() {
         title="회원 관리"
         subtitle={`전체 회원 ${approved.length}명`}
         breadcrumb={[{ label: '관리자' }, { label: '회원 관리' }]}
-        currentUser={user!}
+        currentUser={user}
         unreadCount={unreadCount}
       />
       <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -52,9 +55,20 @@ export default async function MembersPage() {
                   </td>
                   <td className="px-4 py-3 text-[11px] text-[var(--muted)]">{u.joinedAt.replace(/-/g, '.')}</td>
                   <td className="px-4 py-3">
-                    <button className="p-1 rounded hover:bg-[var(--stone-100)]">
-                      <MoreHorizontal size={14} className="text-[var(--muted)]" />
-                    </button>
+                    {u.id !== user.id && (
+                      <form action={toggleMemberRole}>
+                        <input type="hidden" name="targetId" value={u.id} />
+                        <input type="hidden" name="currentRole" value={u.role} />
+                        <button
+                          type="submit"
+                          className="text-[11px] px-2 py-1 rounded border hover:bg-[var(--stone-50)] transition-colors"
+                          style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                          title={u.role === 'admin' ? '멤버로 변경' : '관리자로 변경'}
+                        >
+                          {u.role === 'admin' ? '→멤버' : '→관리자'}
+                        </button>
+                      </form>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -37,7 +37,15 @@ export default async function BoardPage({ params }: { params: { boardId: string 
             아직 게시글이 없습니다. 첫 번째 글을 작성해보세요.
           </div>
         ) : (
-          posts.map(post => <PostCard key={post.id} post={post} profiles={profileMap} />)
+          posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              profiles={profileMap}
+              currentUserId={user!.id}
+              currentUserProfile={profileMap[user!.id]}
+            />
+          ))
         )}
       </div>
     </div>

@@ -1,7 +1,9 @@
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, UserCheck, LayoutDashboard, FileText, Bell } from 'lucide-react';
-import { getMyNotifications } from '@/lib/db/notifications';
+import { getMyNotifications, markAllRead } from '@/lib/db/notifications';
 import { getCurrentProfile } from '@/lib/db/profiles';
 import type { Notification } from '@/lib/types';
 
@@ -48,24 +50,37 @@ function NotifItem({ n }: { n: Notification }) {
 }
 
 export default async function NotificationsPage() {
-  const [notifications, user] = await Promise.all([
-    getMyNotifications(),
-    getCurrentProfile(),
-  ]);
+  const user = await getCurrentProfile();
+  if (!user) redirect('/login');
+
+  const notifications = await getMyNotifications();
 
   const unread = notifications.filter(n => !n.isRead);
   const read = notifications.filter(n => n.isRead);
 
+  async function markAllReadAction() {
+    'use server';
+    await markAllRead();
+    revalidatePath('/notifications');
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="알림" subtitle={`읽지 않은 알림 ${unread.length}개`} currentUser={user!} unreadCount={unread.length} />
+      <Topbar title="알림" subtitle={`읽지 않은 알림 ${unread.length}개`} currentUser={user} unreadCount={unread.length} />
       <div className="flex-1 overflow-y-auto px-6 py-5 max-w-2xl">
         {notifications.length === 0 && (
           <div className="card p-12 text-center text-[var(--muted)] text-[13px]">알림이 없습니다.</div>
         )}
         {unread.length > 0 && (
           <div className="mb-5">
-            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">읽지 않음</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide">읽지 않음</div>
+              <form action={markAllReadAction}>
+                <button type="submit" className="text-[11px] font-medium text-[var(--indigo-600)] hover:underline transition-colors">
+                  모두 읽음 처리
+                </button>
+              </form>
+            </div>
             <div className="space-y-2">
               {unread.map(n => <NotifItem key={n.id} n={n} />)}
             </div>
