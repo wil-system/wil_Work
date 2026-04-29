@@ -104,7 +104,7 @@ function ThreadPanel({
       style={{ borderColor: 'var(--stone-300)', background: 'var(--stone-50)' }}>
 
       {post.comments.length === 0 && (
-        <p className="px-4 py-3 text-[11px]" style={{ color: 'var(--stone-400)' }}>첫 답글을 남겨보세요</p>
+        <p className="px-4 py-3 text-[10px]" style={{ color: 'var(--stone-400)' }}>첫 답글을 남겨보세요</p>
       )}
 
       {post.comments.map((c, i) => {
@@ -116,10 +116,10 @@ function ThreadPanel({
             <Avatar initial={ca.avatarInitial} color={ca.avatarColor} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[12px] font-semibold" style={{ color: 'var(--foreground)' }}>{ca.name}</span>
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--foreground)' }}>{ca.name}</span>
                 <span className="text-[10px]" style={{ color: 'var(--indigo-400)' }}>{formatTime(c.createdAt)}</span>
               </div>
-              <p className="text-[12px] leading-relaxed" style={{ color: 'var(--stone-700)' }}>{c.content}</p>
+              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--stone-700)' }}>{c.content}</p>
             </div>
           </div>
         );
@@ -134,7 +134,7 @@ function ThreadPanel({
             value={reply}
             onChange={e => setReply(e.target.value)}
             placeholder="답글 입력..."
-            className="flex-1 px-3 py-1.5 rounded-lg border text-[11px] outline-none transition-colors"
+            className="flex-1 px-3 py-1.5 rounded-lg border text-[10px] outline-none transition-colors"
             style={{ borderColor: 'rgba(99,102,241,0.2)', background: 'white', color: 'var(--foreground)' }}
             onFocus={e => (e.currentTarget.style.borderColor = 'var(--indigo-400)')}
             onBlur={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.2)')}
@@ -416,7 +416,7 @@ export default function ChatFeed({ posts, currentUserId, currentUserProfile, pro
                   }
                 }}
                 placeholder="메시지를 입력하세요..."
-                className="w-full px-4 py-2.5 text-[12px] outline-none resize-none bg-transparent"
+                className="w-full px-4 py-2.5 text-[11px] outline-none resize-none bg-transparent"
                 style={{ color: 'var(--foreground)', minHeight: '40px' }}
               />
               <div className="flex items-center px-3 pb-2 gap-1">
