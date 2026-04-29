@@ -23,7 +23,7 @@ export default async function BoardsAdminPage() {
         currentUser={user}
         unreadCount={unreadCount}
       />
-      <div className="flex-1 overflow-y-auto px-6 py-5 max-w-2xl">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 max-w-2xl">
         <BoardAdminPanel boards={boards} />
       </div>
     </div>

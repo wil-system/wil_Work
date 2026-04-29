@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { Bell, Search, ChevronRight } from 'lucide-react';
+import { Bell, Search, ChevronRight, Menu } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import type { Profile } from '@/lib/types';
+import { useSidebar } from './sidebar-context';
 
 interface TopbarProps {
   title: string;
@@ -13,10 +14,20 @@ interface TopbarProps {
 }
 
 export default function Topbar({ title, subtitle, breadcrumb, currentUser, unreadCount = 0 }: TopbarProps) {
+  const { open } = useSidebar();
   return (
     <header
-      className="h-14 flex items-center px-6 gap-4 flex-shrink-0 sticky top-0 z-40 glass"
+      className="h-14 flex items-center px-3 sm:px-6 gap-4 flex-shrink-0 sticky top-0 z-40 glass"
     >
+      <button
+        onClick={open}
+        className="p-2 -ml-1 rounded-lg md:hidden flex-shrink-0"
+        style={{ color: 'var(--stone-600)', transition: 'all 0.32s cubic-bezier(0.16,1,0.3,1)' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--stone-100)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      >
+        <Menu size={18} />
+      </button>
       <div className="flex-1 min-w-0">
         {breadcrumb && breadcrumb.length > 0 && (
           <div className="flex items-center gap-1 mb-0.5">
@@ -36,7 +47,7 @@ export default function Topbar({ title, subtitle, breadcrumb, currentUser, unrea
       </div>
 
       <button
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px]"
+        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px]"
         style={{
           background: 'var(--stone-100)',
           color: 'var(--muted)',

@@ -20,7 +20,7 @@ export default async function MemoPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="메모장" subtitle="나만의 업무 메모를 관리하세요" currentUser={user} unreadCount={unreadCount} />
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <MemoPanel pinned={pinned} rest={rest} isEmpty={memos.length === 0} />
       </div>
     </div>

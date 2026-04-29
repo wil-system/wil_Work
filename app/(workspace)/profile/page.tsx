@@ -13,7 +13,7 @@ export default async function ProfilePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="내 프로필" currentUser={user} unreadCount={unreadCount} />
-      <div className="flex-1 overflow-y-auto px-6 py-5 max-w-xl">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 max-w-xl">
         <ProfileCard user={user} />
       </div>
     </div>

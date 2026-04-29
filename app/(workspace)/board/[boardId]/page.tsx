@@ -30,7 +30,7 @@ export default async function BoardPage({ params }: { params: { boardId: string 
         currentUser={user!}
         unreadCount={unreadCount}
       />
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 space-y-4">
         <Composer boardId={params.boardId} authorId={user!.id} authorInitial={user!.avatarInitial} authorColor={user!.avatarColor} />
         {posts.length === 0 ? (
           <div className="card p-12 text-center text-[var(--muted)] text-[13px]">

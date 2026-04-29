@@ -71,7 +71,7 @@ export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
       {/* Add board modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl">
+          <div className="w-[92vw] max-w-md bg-white rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--line)' }}>
               <h2 className="text-[15px] font-bold text-[var(--foreground)]">게시판 추가</h2>
               <button onClick={() => { setShowForm(false); setError(''); }} className="p-1.5 rounded-lg hover:bg-[var(--stone-100)]">

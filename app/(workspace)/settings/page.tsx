@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="설정" currentUser={user} unreadCount={unreadCount} />
-      <div className="flex-1 overflow-y-auto px-6 py-5 max-w-xl">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 max-w-xl">
         <SettingsPanel />
       </div>
     </div>

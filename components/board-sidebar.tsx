@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
-  FileText, Calendar, StickyNote, Settings, Shield, ChevronDown, LogOut,
+  FileText, Calendar, StickyNote, Settings, Shield, ChevronDown, LogOut, X,
 } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, Board } from '@/lib/types';
+import { useSidebar } from './sidebar-context';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
@@ -29,6 +30,7 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
   const pathname = usePathname();
   const router = useRouter();
   const [boardsOpen, setBoardsOpen] = useState(true);
+  const { isOpen, close } = useSidebar();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
@@ -40,8 +42,17 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
   }
 
   return (
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }}
+          onClick={close}
+        />
+      )}
     <aside
-      className="flex flex-col h-screen w-[220px] flex-shrink-0 select-none"
+      className={`flex flex-col h-screen w-[220px] flex-shrink-0 select-none fixed md:static inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       style={{ background: 'var(--bg-sidebar)', boxShadow: 'var(--shadow-sidebar)' }}
     >
       {/* Logo area with ambient gradient */}
@@ -54,6 +65,13 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
           <div className="text-[14px] font-black tracking-[2px] gradient-text">W·I·L</div>
           <div className="text-[10px] mt-0.5 tracking-widest font-semibold" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
         </div>
+        <button
+          onClick={close}
+          className="absolute top-4 right-3 p-1.5 rounded-lg md:hidden"
+          style={{ color: 'var(--stone-500)' }}
+        >
+          <X size={16} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
@@ -121,6 +139,7 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

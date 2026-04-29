@@ -26,8 +26,44 @@ export default async function MembersPage() {
         currentUser={user}
         unreadCount={unreadCount}
       />
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="card overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        {/* Mobile card list */}
+        <div className="md:hidden space-y-3">
+          {approved.map(u => (
+            <div key={u.id} className="card p-4">
+              <div className="flex items-center gap-3">
+                <Avatar initial={u.avatarInitial} color={u.avatarColor} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-[var(--foreground)]">{u.name}</div>
+                  <div className="text-[11px] text-[var(--muted)]">{u.department} · {u.position}</div>
+                </div>
+                <Badge variant={u.role === 'admin' ? 'indigo' : 'gray'}>
+                  {u.role === 'admin' ? '관리자' : '멤버'}
+                </Badge>
+              </div>
+              <div className="mt-2 text-[11px] text-[var(--muted)]">{u.email}</div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] text-[var(--muted)]">가입: {u.joinedAt.replace(/-/g, '.')}</span>
+                {u.id !== user.id && (
+                  <form action={toggleMemberRole}>
+                    <input type="hidden" name="targetId" value={u.id} />
+                    <input type="hidden" name="currentRole" value={u.role} />
+                    <button
+                      type="submit"
+                      className="text-[11px] px-2 py-1 rounded border hover:bg-[var(--stone-50)] transition-colors"
+                      style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                    >
+                      {u.role === 'admin' ? '→멤버' : '→관리자'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block card overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}>

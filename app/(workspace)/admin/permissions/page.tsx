@@ -39,8 +39,9 @@ export default async function PermissionsPage() {
         currentUser={user!}
         unreadCount={unreadCount}
       />
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="card overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="card overflow-x-auto">
+          <div className="min-w-max">
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}>
@@ -87,6 +88,7 @@ export default async function PermissionsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         <p className="text-[11px] text-[var(--muted)] mt-3">
           클릭하면 권한을 토글할 수 있습니다. 관리자는 모든 게시판에 자동 접근 권한이 있습니다.

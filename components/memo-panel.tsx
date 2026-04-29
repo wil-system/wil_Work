@@ -103,7 +103,7 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
       {/* Modal overlay */}
       {editing !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+          <div className="w-[92vw] max-w-lg bg-white rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--line)' }}>
               <h2 className="text-[15px] font-bold text-[var(--foreground)]">
                 {isNew ? '새 메모' : '메모 편집'}

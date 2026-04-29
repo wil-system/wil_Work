@@ -179,7 +179,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                 <div
                   key={i}
                   onClick={() => day && openFormForDate(dateStr)}
-                  className={`bg-white min-h-[72px] p-1.5 ${
+                  className={`bg-white min-h-[56px] sm:min-h-[80px] p-1.5 ${
                     day ? 'cursor-pointer hover:bg-[var(--stone-50)]' : 'opacity-30'
                   }`}
                 >
@@ -248,9 +248,9 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
       {/* Add event modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl">
+          <div className="w-[92vw] max-w-md bg-white rounded-2xl shadow-2xl">
             <div
-              className="flex items-center justify-between px-6 py-4 border-b"
+              className="flex items-center justify-between px-4 sm:px-6 py-4 border-b"
               style={{ borderColor: 'var(--line)' }}
             >
               <h2 className="text-[15px] font-bold text-[var(--foreground)]">일정 추가</h2>

@@ -31,7 +31,7 @@ export default async function WorkReportPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="업무보고" subtitle="일일 업무 현황을 기록하고 공유하세요" currentUser={user} unreadCount={unreadCount} />
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
           <div className="xl:col-span-1">
