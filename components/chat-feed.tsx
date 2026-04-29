@@ -100,8 +100,8 @@ function ThreadPanel({
   }
 
   return (
-    <div className="mt-2 rounded-xl overflow-hidden border-l-2"
-      style={{ borderColor: 'var(--stone-300)', background: 'var(--stone-50)' }}>
+    <div className="mt-2 rounded-xl overflow-hidden"
+      style={{ border: '1px solid var(--line)', borderLeft: '3px solid var(--stone-300)', background: 'var(--stone-50)' }}>
 
       {post.comments.length === 0 && (
         <p className="px-4 py-3 text-[10px]" style={{ color: 'var(--stone-400)' }}>첫 답글을 남겨보세요</p>
@@ -230,7 +230,7 @@ function ChatMessage({
             {/* Thread toggle */}
             <button
               onClick={() => setThreadOpen(o => !o)}
-              className="flex items-center gap-1 mt-2.5 text-[10px] font-normal transition-colors hover:underline"
+              className="flex items-center gap-1 mt-2.5 text-[11px] font-normal transition-colors hover:underline"
               style={{ color: threadOpen ? 'var(--indigo-500)' : 'var(--stone-400)' }}
             >
               <MessageSquare size={10} />
