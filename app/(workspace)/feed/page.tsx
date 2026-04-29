@@ -26,7 +26,7 @@ export default async function FeedPage() {
         unreadCount={unreadCount}
       />
       <ChatFeed
-        posts={posts}
+        posts={[...posts].reverse()}
         currentUserId={user.id}
         currentUserProfile={profileMap[user.id]}
         profiles={profileMap}
