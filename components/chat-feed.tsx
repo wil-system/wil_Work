@@ -162,10 +162,22 @@ function ChatMessage({
   currentUserProfile: ProfileInfo;
 }) {
   const [threadOpen, setThreadOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const author = profiles[post.authorId] ?? {
     name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#94a3b8',
   };
   const isMyMessage = post.authorId === currentUserId;
+
+  useEffect(() => {
+    if (!threadOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setThreadOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [threadOpen]);
 
   return (
     <>
@@ -180,7 +192,7 @@ function ChatMessage({
         </div>
       )}
 
-      <div className="mb-3">
+      <div ref={containerRef} className="mb-3">
         {/* Message card */}
         <div
           className="rounded-xl border overflow-hidden"
