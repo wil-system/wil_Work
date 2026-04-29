@@ -44,9 +44,16 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
       className="flex flex-col h-screen w-[220px] flex-shrink-0 select-none"
       style={{ background: 'var(--bg-sidebar)', boxShadow: 'var(--shadow-sidebar)' }}
     >
-      <div className="px-5 pt-5 pb-4">
-        <div className="text-[13px] font-black tracking-[2px]" style={{ color: 'var(--indigo-600)' }}>W·I·L</div>
-        <div className="text-[10px] mt-0.5 tracking-wide" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
+      {/* Logo area with ambient gradient */}
+      <div className="relative px-5 pt-5 pb-4 overflow-hidden">
+        <div
+          className="absolute -top-6 -left-6 w-28 h-28 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)' }}
+        />
+        <div className="relative">
+          <div className="text-[14px] font-black tracking-[2px] gradient-text">W·I·L</div>
+          <div className="text-[10px] mt-0.5 tracking-widest font-semibold" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
@@ -55,11 +62,11 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
         <div className="mt-3">
           <button
             onClick={() => setBoardsOpen(o => !o)}
-            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
+            className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest uppercase"
             style={{ color: 'var(--stone-400)' }}
           >
             <span>게시판</span>
-            <ChevronDown size={12} className={`transition-transform ${boardsOpen ? '' : '-rotate-90'}`} />
+            <ChevronDown size={11} className={`transition-transform duration-200 ${boardsOpen ? '' : '-rotate-90'}`} />
           </button>
           {boardsOpen && boards.filter(b => b.id !== 'feed').map(board => {
             const Icon = ICON_MAP[board.icon] ?? Bell;
@@ -76,7 +83,9 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
         </div>
 
         <div className="mt-3">
-          <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>워크스페이스</div>
+          <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>
+            워크스페이스
+          </div>
           {WORKSPACE_NAV.map(item => (
             <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} />
           ))}
@@ -84,7 +93,9 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
 
         {currentUser.role === 'admin' && (
           <div className="mt-3">
-            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>관리자</div>
+            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>
+              관리자
+            </div>
             <NavItem href="/admin/approvals" icon={Shield} label="가입 승인" active={isActive('/admin')} />
           </div>
         )}
@@ -93,10 +104,11 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
       <div className="p-3 space-y-0.5" style={{ borderTop: '1px solid var(--line)' }}>
         <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} />
         <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} />
+
         <button
           onClick={handleSignOut}
-          className="mt-1 flex items-center gap-2 w-full px-2 py-2 rounded-lg transition-colors text-left"
-          style={{ color: 'var(--stone-600)' }}
+          className="mt-1 flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left"
+          style={{ color: 'var(--stone-600)', transition: 'all 0.32s cubic-bezier(0.16,1,0.3,1)' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--stone-100)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
@@ -112,19 +124,34 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
   );
 }
 
-function NavItem({ href, icon: Icon, label, active }: { href: string; icon: React.ElementType; label: string; active: boolean }) {
+function NavItem({
+  href, icon: Icon, label, active,
+}: {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  active: boolean;
+}) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors"
-      style={active
-        ? { background: 'var(--bg-sidebar-active)', color: 'var(--indigo-700)' }
-        : { color: 'var(--stone-600)' }
-      }
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-sidebar-hover)'; }}
-      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium"
+      style={{
+        background: active ? 'var(--bg-sidebar-active)' : 'transparent',
+        color: active ? 'var(--indigo-700)' : 'var(--stone-600)',
+        transition: 'all 0.32s cubic-bezier(0.16,1,0.3,1)',
+      }}
+      onMouseEnter={e => {
+        if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-sidebar-hover)';
+      }}
+      onMouseLeave={e => {
+        if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent';
+      }}
     >
-      <Icon size={15} style={{ color: active ? 'var(--indigo-500)' : 'var(--stone-400)' }} />
+      <Icon
+        size={15}
+        style={{ color: active ? 'var(--indigo-500)' : 'var(--stone-400)', flexShrink: 0 }}
+      />
       <span>{label}</span>
     </Link>
   );
