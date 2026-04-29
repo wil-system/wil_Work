@@ -154,7 +154,7 @@ function NavItem({
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium"
+      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium"
       style={{
         background: active ? 'var(--bg-sidebar-active)' : 'transparent',
         color: active ? 'var(--indigo-700)' : 'var(--stone-600)',

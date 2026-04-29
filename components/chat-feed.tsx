@@ -101,7 +101,7 @@ function ThreadPanel({
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden border-l-2"
-      style={{ borderColor: 'var(--indigo-200)', background: 'rgba(99,102,241,0.04)' }}>
+      style={{ borderColor: 'var(--stone-300)', background: 'var(--stone-50)' }}>
 
       {post.comments.length === 0 && (
         <p className="px-4 py-3 text-[11px]" style={{ color: 'var(--stone-400)' }}>첫 답글을 남겨보세요</p>
@@ -186,9 +186,9 @@ function ChatMessage({
           className="rounded-xl border overflow-hidden"
           style={{
             background: 'var(--bg-surface)',
-            borderColor: post.isPinned ? 'var(--indigo-200)' : 'var(--line)',
+            borderColor: 'var(--line)',
             boxShadow: 'var(--shadow-card)',
-            borderLeft: post.isPinned ? '3px solid var(--indigo-400)' : undefined,
+            borderLeft: post.isPinned ? '3px solid var(--warning)' : undefined,
           }}
         >
           {/* Card header */}
@@ -230,11 +230,8 @@ function ChatMessage({
             {/* Thread toggle */}
             <button
               onClick={() => setThreadOpen(o => !o)}
-              className="flex items-center gap-1.5 mt-3 text-[11px] font-medium rounded-lg px-2 py-1 -ml-2 transition-colors"
-              style={{
-                color: threadOpen ? 'var(--indigo-600)' : 'var(--stone-400)',
-                background: threadOpen ? 'var(--indigo-50)' : 'transparent',
-              }}
+              className="flex items-center gap-1 mt-2.5 text-[10px] font-normal transition-colors hover:underline"
+              style={{ color: threadOpen ? 'var(--indigo-500)' : 'var(--stone-400)' }}
             >
               <MessageSquare size={12} />
               <span>{post.comments.length > 0 ? `${post.comments.length}개 답글` : '답글 달기'}</span>
