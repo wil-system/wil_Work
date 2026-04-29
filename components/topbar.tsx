@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import { Bell, Search, ChevronRight } from 'lucide-react';
 import { Avatar } from './ui/avatar';
