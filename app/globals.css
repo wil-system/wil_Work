@@ -65,7 +65,7 @@ body {
 
 h1, h2, h3, h4 { text-wrap: balance; }
 
-button, input, textarea, select { font: inherit; }
+button, input, textarea, select { font-family: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
 
