@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import Link from 'next/link';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, UserCheck, LayoutDashboard, FileText, Bell } from 'lucide-react';
@@ -29,9 +30,9 @@ function timeAgo(dateStr: string) {
 
 function NotifItem({ n }: { n: Notification }) {
   const Icon = TYPE_ICON[n.type] ?? Bell;
-  return (
+  const content = (
     <div
-      className={`card p-4 flex items-start gap-3 ${!n.isRead ? 'border-l-2' : ''}`}
+      className={`card p-4 flex items-start gap-3 ${n.link ? 'hover:bg-[var(--stone-50)] transition-colors' : ''} ${!n.isRead ? 'border-l-2' : ''}`}
       style={!n.isRead ? { borderLeftColor: 'var(--indigo-500)' } : {}}
     >
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--indigo-50)' }}>
@@ -47,6 +48,9 @@ function NotifItem({ n }: { n: Notification }) {
       </div>
     </div>
   );
+
+  if (!n.link) return content;
+  return <Link href={n.link}>{content}</Link>;
 }
 
 export default async function NotificationsPage() {

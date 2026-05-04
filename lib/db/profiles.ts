@@ -21,35 +21,39 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('work_profiles')
     .select('*')
     .eq('id', user.id)
     .single();
 
+  if (error) return null;
   return data ? toProfile(data) : null;
 }
 
 export async function getAllProfiles(): Promise<Profile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('work_profiles')
     .select('*')
     .order('joined_at');
+  if (error) throw error;
   return (data ?? []).map(toProfile);
 }
 
 export async function getPendingProfiles(): Promise<Profile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('work_profiles')
     .select('*')
     .eq('status', 'pending')
     .order('joined_at');
+  if (error) throw error;
   return (data ?? []).map(toProfile);
 }
 
 export async function updateProfileStatus(id: string, status: 'approved' | 'rejected'): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('work_profiles').update({ status }).eq('id', id);
+  const { error } = await supabase.from('work_profiles').update({ status }).eq('id', id);
+  if (error) throw error;
 }

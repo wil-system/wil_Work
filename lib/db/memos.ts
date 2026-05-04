@@ -15,33 +15,36 @@ function toMemo(row: Record<string, unknown>): Memo {
 
 export async function getMyMemos(authorId: string): Promise<Memo[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('work_memos')
     .select('*')
     .eq('author_id', authorId)
     .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false });
+  if (error) throw error;
   return (data ?? []).map(toMemo);
 }
 
 export async function createMemo(memo: Omit<Memo, 'id' | 'updatedAt'>): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('work_memos').insert({
+  const { error } = await supabase.from('work_memos').insert({
     author_id: memo.authorId,
     title: memo.title,
     content: memo.content,
     tags: memo.tags,
     is_pinned: memo.isPinned,
   });
+  if (error) throw error;
 }
 
 export async function updateMemo(id: string, updates: Partial<Pick<Memo, 'title' | 'content' | 'tags' | 'isPinned'>>): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('work_memos').update({
+  const { error } = await supabase.from('work_memos').update({
     ...(updates.title !== undefined && { title: updates.title }),
     ...(updates.content !== undefined && { content: updates.content }),
     ...(updates.tags !== undefined && { tags: updates.tags }),
     ...(updates.isPinned !== undefined && { is_pinned: updates.isPinned }),
     updated_at: new Date().toISOString(),
   }).eq('id', id);
+  if (error) throw error;
 }

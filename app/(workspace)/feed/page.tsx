@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Topbar from '@/components/topbar';
 import ChatFeed from '@/components/chat-feed';
-import { getPostsForBoard } from '@/lib/db/posts';
+import { getFeedDateCounts, getLatestFeedPosts, getPinnedFeedPosts } from '@/lib/db/posts';
 import { getCurrentProfile, getAllProfiles } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
@@ -9,8 +9,10 @@ export default async function FeedPage() {
   const user = await getCurrentProfile();
   if (!user) redirect('/login');
 
-  const [posts, allProfiles, unreadCount] = await Promise.all([
-    getPostsForBoard('feed'),
+  const [feedPage, pinnedPosts, dateCounts, allProfiles, unreadCount] = await Promise.all([
+    getLatestFeedPosts(20),
+    getPinnedFeedPosts(),
+    getFeedDateCounts(),
     getAllProfiles(),
     getUnreadNotificationCount(),
   ]);
@@ -26,7 +28,11 @@ export default async function FeedPage() {
         unreadCount={unreadCount}
       />
       <ChatFeed
-        posts={[...posts].reverse()}
+        key={feedPage.posts.map(post => post.id).join(':')}
+        initialPosts={feedPage.posts}
+        initialPinnedPosts={pinnedPosts}
+        initialHasMoreOlder={feedPage.hasMore}
+        dateCounts={dateCounts}
         currentUserId={user.id}
         currentUserProfile={profileMap[user.id]}
         profiles={profileMap}

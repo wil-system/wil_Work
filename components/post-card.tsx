@@ -1,29 +1,14 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { MessageSquare, Paperclip, Pin, FileSpreadsheet, FileText, Image as ImageIcon, File, Send } from 'lucide-react';
+import { Check, Edit3, MessageSquare, Paperclip, Pin, Send, Trash2, X } from 'lucide-react';
+import AttachmentViewer from './attachment-viewer';
 import { Avatar } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { createClient } from '@/lib/supabase/client';
-import type { Post, Attachment } from '@/lib/types';
-
-const ATTACH_ICON: Record<string, React.ElementType> = {
-  xls: FileSpreadsheet, pdf: FileText, image: ImageIcon,
-  doc: FileText, zip: File, other: File,
-};
+import { renderRichText } from '@/lib/rich-text';
+import type { Post } from '@/lib/types';
 
 type ProfileInfo = { name: string; position: string; role: string; avatarInitial: string; avatarColor: string };
-
-function AttachmentChip({ attachment }: { attachment: Attachment }) {
-  const Icon = ATTACH_ICON[attachment.type] ?? File;
-  return (
-    <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--stone-100)] hover:bg-[var(--stone-200)] transition-colors border border-[var(--line)] text-[11px] text-[var(--stone-600)]">
-      <Icon size={12} className="text-[var(--indigo-500)]" />
-      <span className="font-medium">{attachment.name}</span>
-      <span className="text-[10px] text-[var(--stone-400)]">{attachment.size}</span>
-    </button>
-  );
-}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -43,11 +28,18 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, profiles = {}, currentUserId, currentUserProfile }: PostCardProps) {
-  const router = useRouter();
+  const [currentPost, setCurrentPost] = useState(post);
+  const [deleted, setDeleted] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comment, setComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const author = profiles[post.authorId] ?? { name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#999' };
+  const [editingPost, setEditingPost] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(currentPost.title ?? '');
+  const [editingContent, setEditingContent] = useState(currentPost.content);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingComment, setEditingComment] = useState('');
+  const author = profiles[currentPost.authorId] ?? { name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#999' };
+  const isMyPost = currentPost.authorId === currentUserId;
 
   async function handleCommentSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,19 +47,98 @@ export default function PostCard({ post, profiles = {}, currentUserId, currentUs
     setSubmittingComment(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from('work_comments').insert({
-        post_id: post.id,
+      const { data, error } = await supabase.from('work_comments').insert({
+        post_id: currentPost.id,
         author_id: currentUserId,
         content: comment.trim(),
-      });
-      if (!error) {
+      }).select('id, author_id, content, created_at').single();
+      if (!error && data) {
+        setCurrentPost(prev => ({
+          ...prev,
+          comments: [
+            ...prev.comments,
+            {
+              id: data.id as string,
+              authorId: data.author_id as string,
+              content: data.content as string,
+              createdAt: data.created_at as string,
+            },
+          ],
+        }));
         setComment('');
-        router.refresh();
       }
     } finally {
       setSubmittingComment(false);
     }
   }
+
+  async function savePost() {
+    const nextContent = editingContent.trim();
+    if (!nextContent) return;
+
+    const nextTitle = editingTitle.trim();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('work_posts')
+      .update({ title: nextTitle || null, content: nextContent })
+      .eq('id', currentPost.id);
+
+    if (!error) {
+      setCurrentPost(prev => ({ ...prev, title: nextTitle || undefined, content: nextContent }));
+      setEditingPost(false);
+    }
+  }
+
+  async function deletePost() {
+    if (!window.confirm('글을 삭제하시겠습니까? 삭제된 글은 복구할 수 없습니다.')) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('work_posts')
+      .delete()
+      .eq('id', currentPost.id);
+
+    if (!error) setDeleted(true);
+  }
+
+  async function saveComment(commentId: string) {
+    const next = editingComment.trim();
+    if (!next) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('work_comments')
+      .update({ content: next })
+      .eq('id', commentId);
+
+    if (!error) {
+      setCurrentPost(prev => ({
+        ...prev,
+        comments: prev.comments.map(item => item.id === commentId ? { ...item, content: next } : item),
+      }));
+      setEditingCommentId(null);
+      setEditingComment('');
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('work_comments')
+      .delete()
+      .eq('id', commentId);
+
+    if (!error) {
+      setCurrentPost(prev => ({
+        ...prev,
+        comments: prev.comments.filter(item => item.id !== commentId),
+      }));
+    }
+  }
+
+  if (deleted) return null;
 
   return (
     <article className="card animate-fade-up">
@@ -82,22 +153,78 @@ export default function PostCard({ post, profiles = {}, currentUserId, currentUs
             <div className="text-[11px] text-[var(--muted)]">{author.position} · {timeAgo(post.createdAt)}</div>
           </div>
         </div>
-        {post.isPinned && <Pin size={13} className="text-[var(--indigo-500)] mt-0.5" />}
+        <div className="flex items-center gap-1.5">
+          {isMyPost && (
+            <>
+              {editingPost ? (
+                <>
+                  <button type="button" onClick={() => void savePost()} className="p-1 rounded hover:bg-[var(--stone-100)]" aria-label="글 저장">
+                    <Check size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPost(false);
+                      setEditingTitle(currentPost.title ?? '');
+                      setEditingContent(currentPost.content);
+                    }}
+                    className="p-1 rounded hover:bg-[var(--stone-100)]"
+                    aria-label="글 수정 취소"
+                  >
+                    <X size={13} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => setEditingPost(true)} className="p-1 rounded hover:bg-[var(--stone-100)]" aria-label="글 수정">
+                    <Edit3 size={13} />
+                  </button>
+                  <button type="button" onClick={() => void deletePost()} className="p-1 rounded hover:bg-[var(--stone-100)] text-[var(--danger)]" aria-label="글 삭제">
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </>
+          )}
+          {currentPost.isPinned && <Pin size={13} className="text-[var(--indigo-500)] mt-0.5" />}
+        </div>
       </div>
 
       <div className="border-t mx-5" style={{ borderColor: 'var(--line)' }} />
 
       <div className="px-5 py-3">
-        {post.title && (
-          <h2 className="text-[14px] font-bold text-[var(--foreground)] mb-1.5">{post.title}</h2>
+        {editingPost ? (
+          <div className="space-y-2">
+            <input
+              value={editingTitle}
+              onChange={e => setEditingTitle(e.target.value)}
+              placeholder="제목"
+              className="w-full px-3 py-2 rounded-lg border text-[13px] font-semibold outline-none"
+              style={{ borderColor: 'var(--line)', background: 'white', color: 'var(--foreground)' }}
+            />
+            <textarea
+              value={editingContent}
+              onChange={e => setEditingContent(e.target.value)}
+              rows={4}
+              className="w-full resize-none px-3 py-2 rounded-lg border text-[13px] outline-none"
+              style={{ borderColor: 'var(--line)', background: 'white', color: 'var(--foreground)' }}
+            />
+          </div>
+        ) : (
+          <>
+            {currentPost.title && (
+              <h2 className="text-[14px] font-bold text-[var(--foreground)] mb-1.5">{currentPost.title}</h2>
+            )}
+            <p
+              className="text-[13px] text-[var(--stone-700)] leading-relaxed whitespace-pre-line"
+            >
+              {renderRichText(currentPost.content)}
+            </p>
+          </>
         )}
-        <p
-          className="text-[13px] text-[var(--stone-700)] leading-relaxed whitespace-pre-line"
-          dangerouslySetInnerHTML={{ __html: post.content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }}
-        />
-        {post.attachments.length > 0 && (
+        {currentPost.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
-            {post.attachments.map(a => <AttachmentChip key={a.id} attachment={a} />)}
+            {currentPost.attachments.map(a => <AttachmentViewer key={a.id} attachment={a} compact />)}
           </div>
         )}
       </div>
@@ -109,29 +236,63 @@ export default function PostCard({ post, profiles = {}, currentUserId, currentUs
           style={{ color: showComments ? 'var(--indigo-600)' : 'var(--muted)' }}
         >
           <MessageSquare size={13} />
-          <span>댓글 {post.comments.length}개</span>
+          <span>댓글 {currentPost.comments.length}개</span>
         </button>
-        {post.attachments.length > 0 && (
+        {currentPost.attachments.length > 0 && (
           <span className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)]">
             <Paperclip size={13} />
-            <span>첨부 {post.attachments.length}개</span>
+            <span>첨부 {currentPost.attachments.length}개</span>
           </span>
         )}
       </div>
 
       {showComments && (
         <div className="border-t bg-[var(--stone-50)] rounded-b-[14px]" style={{ borderColor: 'var(--line)' }}>
-          {post.comments.map(c => {
+          {currentPost.comments.map(c => {
             const ca = profiles[c.authorId] ?? { name: '알 수 없음', avatarInitial: '?', avatarColor: '#999' };
+            const isMine = c.authorId === currentUserId;
+            const isEditing = editingCommentId === c.id;
             return (
               <div key={c.id} className="px-5 py-3 flex gap-2.5 border-b last:border-0" style={{ borderColor: 'var(--line)' }}>
                 <Avatar initial={ca.avatarInitial} color={ca.avatarColor} size="sm" />
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-[12px] font-semibold text-[var(--foreground)]">{ca.name}</span>
                     <span className="text-[10px] text-[var(--muted)]">{timeAgo(c.createdAt)}</span>
+                    {isMine && (
+                      <span className="ml-auto flex items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <button type="button" onClick={() => void saveComment(c.id)} className="p-1 rounded hover:bg-white" aria-label="댓글 저장">
+                              <Check size={12} />
+                            </button>
+                            <button type="button" onClick={() => { setEditingCommentId(null); setEditingComment(''); }} className="p-1 rounded hover:bg-white" aria-label="댓글 수정 취소">
+                              <X size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingComment(c.content); }} className="p-1 rounded hover:bg-white" aria-label="댓글 수정">
+                              <Edit3 size={12} />
+                            </button>
+                            <button type="button" onClick={() => void deleteComment(c.id)} className="p-1 rounded hover:bg-white text-[var(--danger)]" aria-label="댓글 삭제">
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[12px] text-[var(--stone-700)]">{c.content}</p>
+                  {isEditing ? (
+                    <input
+                      value={editingComment}
+                      onChange={e => setEditingComment(e.target.value)}
+                      className="w-full px-2 py-1 rounded border text-[12px] outline-none"
+                      style={{ borderColor: 'var(--line)', background: 'white', color: 'var(--foreground)' }}
+                    />
+                  ) : (
+                    <p className="text-[12px] text-[var(--stone-700)]">{c.content}</p>
+                  )}
                 </div>
               </div>
             );

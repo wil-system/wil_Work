@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Bell, Search, ChevronRight, Menu } from 'lucide-react';
+import { Bell, ChevronRight, Menu } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import type { Profile } from '@/lib/types';
 import { useSidebar } from './sidebar-context';
@@ -45,22 +45,6 @@ export default function Topbar({ title, subtitle, breadcrumb, currentUser, unrea
         <h1 className="text-[15px] font-bold truncate" style={{ color: 'var(--foreground)', lineHeight: '1.3' }}>{title}</h1>
         {subtitle && <p className="text-[11px]" style={{ color: 'var(--muted)' }}>{subtitle}</p>}
       </div>
-
-      <button
-        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px]"
-        style={{
-          background: 'var(--stone-100)',
-          color: 'var(--muted)',
-          border: '1px solid var(--line)',
-          transition: 'all 0.32s cubic-bezier(0.16,1,0.3,1)',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'var(--stone-200)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'var(--stone-100)')}
-      >
-        <Search size={13} />
-        <span>검색</span>
-        <kbd className="ml-1 text-[10px] opacity-50">⌘K</kbd>
-      </button>
 
       <Link
         href="/notifications"

@@ -20,6 +20,10 @@ html { scroll-behavior: smooth; }
   --indigo-700: #4338ca;
   --indigo-900: #1e1b4b;
 
+  /* Teal hashtag accent */
+  --teal-50:  #ecfdf5;
+  --teal-700: #047857;
+
   /* Slate neutrals */
   --stone-50:  #f8fafc;
   --stone-100: #f1f5f9;

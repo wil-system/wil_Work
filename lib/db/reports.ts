@@ -16,17 +16,18 @@ function toReport(row: Record<string, unknown>): WorkReport {
 export async function getTodayReports(): Promise<WorkReport[]> {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('work_reports')
     .select('*')
     .eq('date', today)
     .order('created_at');
+  if (error) throw error;
   return (data ?? []).map(toReport);
 }
 
 export async function upsertReport(report: Omit<WorkReport, 'id'>): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('work_reports').upsert({
+  const { error } = await supabase.from('work_reports').upsert({
     author_id: report.authorId,
     date: report.date,
     planned_tasks: report.plannedTasks,
@@ -34,4 +35,5 @@ export async function upsertReport(report: Omit<WorkReport, 'id'>): Promise<void
     issues: report.issues,
     status: report.status,
   }, { onConflict: 'author_id,date' });
+  if (error) throw error;
 }

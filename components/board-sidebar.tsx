@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
   FileText, Calendar, StickyNote, Settings, Shield, ChevronDown, LogOut, X,
+  Users, Key, LayoutList, Dot,
 } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import { createClient } from '@/lib/supabase/client';
@@ -12,13 +13,20 @@ import type { Profile, Board } from '@/lib/types';
 import { useSidebar } from './sidebar-context';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
+  LayoutDashboard, TrendingUp, Code2, Megaphone, Bell, Dot,
 };
 
 const WORKSPACE_NAV = [
   { href: '/work-report', label: '업무보고', icon: FileText },
   { href: '/calendar',    label: '캘린더',   icon: Calendar },
   { href: '/memo',        label: '메모장',   icon: StickyNote },
+];
+
+const ADMIN_NAV = [
+  { href: '/admin/approvals',   label: '가입 승인',  icon: Shield },
+  { href: '/admin/members',     label: '회원 관리',  icon: Users },
+  { href: '/admin/permissions', label: '권한 관리',  icon: Key },
+  { href: '/admin/boards',      label: '게시판 관리', icon: LayoutList },
 ];
 
 interface BoardSidebarProps {
@@ -30,6 +38,7 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
   const pathname = usePathname();
   const router = useRouter();
   const [boardsOpen, setBoardsOpen] = useState(true);
+  const [adminOpen, setAdminOpen] = useState(true);
   const { isOpen, close } = useSidebar();
 
   const isActive = (href: string) =>
@@ -87,7 +96,7 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
             <ChevronDown size={11} className={`transition-transform duration-200 ${boardsOpen ? '' : '-rotate-90'}`} />
           </button>
           {boardsOpen && boards.filter(b => b.id !== 'feed').map(board => {
-            const Icon = ICON_MAP[board.icon] ?? Bell;
+            const Icon = board.id === 'notice' ? Bell : (ICON_MAP[board.icon] ?? Dot);
             return (
               <NavItem
                 key={board.id}
@@ -111,10 +120,24 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
 
         {currentUser.role === 'admin' && (
           <div className="mt-3">
-            <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>
-              관리자
-            </div>
-            <NavItem href="/admin/approvals" icon={Shield} label="가입 승인" active={isActive('/admin')} />
+            <button
+              onClick={() => setAdminOpen(o => !o)}
+              className="w-full flex items-center justify-between px-3 py-1 text-[10px] font-semibold tracking-widest uppercase"
+              style={{ color: 'var(--stone-400)' }}
+            >
+              <span>관리자</span>
+              <ChevronDown size={11} className={`transition-transform duration-200 ${adminOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {adminOpen && ADMIN_NAV.map(item => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                active={isActive(item.href)}
+                nested
+              />
+            ))}
           </div>
         )}
       </div>
@@ -144,17 +167,18 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
 }
 
 function NavItem({
-  href, icon: Icon, label, active,
+  href, icon: Icon, label, active, nested = false,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   active: boolean;
+  nested?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium"
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium ${nested ? 'ml-3' : ''}`}
       style={{
         background: active ? 'var(--bg-sidebar-active)' : 'transparent',
         color: active ? 'var(--indigo-700)' : 'var(--stone-600)',

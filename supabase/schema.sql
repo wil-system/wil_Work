@@ -23,6 +23,7 @@ create table if not exists work_boards (
   description text not null default '',
   icon text not null default 'Bell',
   is_public boolean not null default false,
+  display_order integer not null default 1000,
   created_at timestamptz not null default now()
 );
 
@@ -30,6 +31,7 @@ create table if not exists work_boards (
 create table if not exists work_board_permissions (
   profile_id uuid references work_profiles(id) on delete cascade,
   board_id text references work_boards(id) on delete cascade,
+  board_role text not null default 'member' check (board_role in ('leader', 'member')),
   primary key (profile_id, board_id)
 );
 
@@ -41,6 +43,8 @@ create table if not exists work_posts (
   title text,
   content text not null default '',
   is_pinned boolean not null default false,
+  work_status text check (work_status is null or work_status in ('in_progress', 'completed', 'on_hold')),
+  assignee_id uuid references work_profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -75,6 +79,9 @@ create table if not exists work_reports (
   status text not null default 'draft' check (status in ('draft', 'submitted', 'reviewed')),
   created_at timestamptz not null default now()
 );
+
+create unique index if not exists work_reports_author_date_key
+  on work_reports(author_id, date);
 
 -- Calendar events
 create table if not exists work_calendar_events (
@@ -155,46 +162,134 @@ returns boolean language sql security definer as $$
   );
 $$;
 
+create or replace function get_feed_post_counts_by_day()
+returns table(date date, count bigint)
+language sql
+security definer
+as $$
+  select (created_at at time zone 'Asia/Seoul')::date as date, count(*) as count
+  from work_posts
+  where board_id = 'feed'
+  group by 1
+  order by 1;
+$$;
+
+create or replace function public.create_feed_mention_notifications(
+  p_post_id uuid,
+  p_content text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_actor_name text;
+  v_link text := '/feed?post=' || p_post_id::text;
+  v_inserted integer := 0;
+begin
+  if v_actor_id is null or coalesce(trim(p_content), '') = '' then
+    return 0;
+  end if;
+
+  select name
+    into v_actor_name
+  from public.work_profiles
+  where id = v_actor_id
+    and status = 'approved';
+
+  if v_actor_name is null then
+    return 0;
+  end if;
+
+  if not exists (
+    select 1
+    from public.work_posts
+    where id = p_post_id
+      and board_id = 'feed'
+  ) then
+    return 0;
+  end if;
+
+  insert into public.work_notifications (profile_id, type, title, body, link)
+  select
+    mentioned.id,
+    'mention',
+    '새 멘션',
+    v_actor_name || '님이 피드에서 회원님을 언급했습니다.',
+    v_link
+  from public.work_profiles mentioned
+  where mentioned.id <> v_actor_id
+    and mentioned.status = 'approved'
+    and position('@' || mentioned.name in p_content) > 0
+    and not exists (
+      select 1
+      from public.work_notifications existing
+      where existing.profile_id = mentioned.id
+        and existing.type = 'mention'
+        and existing.link = v_link
+    );
+
+  get diagnostics v_inserted = row_count;
+  return v_inserted;
+end;
+$$;
+
 -- work_profiles
+drop policy if exists "Approved users can read all profiles" on work_profiles;
 create policy "Approved users can read all profiles"
   on work_profiles for select
   using (is_work_approved());
 
+drop policy if exists "Users can update own profile" on work_profiles;
 create policy "Users can update own profile"
   on work_profiles for update
   using (id = auth.uid());
 
+drop policy if exists "Admins can update any profile" on work_profiles;
 create policy "Admins can update any profile"
   on work_profiles for update
   using (is_work_admin());
 
+drop policy if exists "Users can insert own profile" on work_profiles;
 create policy "Users can insert own profile"
   on work_profiles for insert
   with check (id = auth.uid());
 
 -- work_boards
+drop policy if exists "Approved users can read all boards" on work_boards;
 create policy "Approved users can read all boards"
   on work_boards for select
   using (is_work_approved());
 
+drop policy if exists "Admins can insert boards" on work_boards;
 create policy "Admins can insert boards"
   on work_boards for insert
   with check (is_work_admin());
 
+drop policy if exists "Admins can update boards" on work_boards;
 create policy "Admins can update boards"
   on work_boards for update
   using (is_work_admin());
+drop policy if exists "Admins can delete boards" on work_boards;
+create policy "Admins can delete boards"
+  on work_boards for delete
+  using (is_work_admin() and id not in ('feed', 'notice'));
 
 -- work_board_permissions
+drop policy if exists "Approved users can read permissions" on work_board_permissions;
 create policy "Approved users can read permissions"
   on work_board_permissions for select
   using (is_work_approved());
 
+drop policy if exists "Admins can manage permissions" on work_board_permissions;
 create policy "Admins can manage permissions"
   on work_board_permissions for all
   using (is_work_admin());
 
 -- work_posts (users can read boards they have access to)
+drop policy if exists "Users can read posts on accessible boards" on work_posts;
 create policy "Users can read posts on accessible boards"
   on work_posts for select
   using (
@@ -208,89 +303,129 @@ create policy "Users can read posts on accessible boards"
     )
   );
 
+drop policy if exists "Approved users can insert posts" on work_posts;
 create policy "Approved users can insert posts"
   on work_posts for insert
-  with check (is_work_approved() and author_id = auth.uid());
+  with check (
+    is_work_approved()
+    and author_id = auth.uid()
+    and (board_id <> 'notice' or is_work_admin())
+  );
 
+drop policy if exists "Authors can update own posts" on work_posts;
 create policy "Authors can update own posts"
   on work_posts for update
+  using (author_id = auth.uid() or assignee_id = auth.uid() or is_work_admin());
+
+drop policy if exists "Authors can delete own posts" on work_posts;
+create policy "Authors can delete own posts"
+  on work_posts for delete
   using (author_id = auth.uid() or is_work_admin());
 
 -- work_attachments
+drop policy if exists "Users can read attachments on accessible posts" on work_attachments;
 create policy "Users can read attachments on accessible posts"
   on work_attachments for select
   using (is_work_approved());
 
+drop policy if exists "Authors can insert attachments" on work_attachments;
 create policy "Authors can insert attachments"
   on work_attachments for insert
   with check (is_work_approved());
 
 -- work_comments
+drop policy if exists "Users can read comments on accessible posts" on work_comments;
 create policy "Users can read comments on accessible posts"
   on work_comments for select
   using (is_work_approved());
 
+drop policy if exists "Approved users can insert comments" on work_comments;
 create policy "Approved users can insert comments"
   on work_comments for insert
   with check (is_work_approved() and author_id = auth.uid());
 
+drop policy if exists "Authors can update own comments" on work_comments;
+create policy "Authors can update own comments"
+  on work_comments for update
+  using (author_id = auth.uid() or is_work_admin())
+  with check (author_id = auth.uid() or is_work_admin());
+
+drop policy if exists "Authors can delete own comments" on work_comments;
+create policy "Authors can delete own comments"
+  on work_comments for delete
+  using (author_id = auth.uid() or is_work_admin());
+
 -- work_reports
+drop policy if exists "Users can read all reports" on work_reports;
 create policy "Users can read all reports"
   on work_reports for select
   using (is_work_approved());
 
+drop policy if exists "Users can insert own reports" on work_reports;
 create policy "Users can insert own reports"
   on work_reports for insert
   with check (is_work_approved() and author_id = auth.uid());
 
+drop policy if exists "Users can update own reports" on work_reports;
 create policy "Users can update own reports"
   on work_reports for update
   using (author_id = auth.uid() or is_work_admin());
 
 -- work_calendar_events
+drop policy if exists "Approved users can read all events" on work_calendar_events;
 create policy "Approved users can read all events"
   on work_calendar_events for select
   using (is_work_approved());
 
+drop policy if exists "Approved users can insert events" on work_calendar_events;
 create policy "Approved users can insert events"
   on work_calendar_events for insert
   with check (is_work_approved());
 
+drop policy if exists "Creator or admin can update events" on work_calendar_events;
 create policy "Creator or admin can update events"
   on work_calendar_events for update
   using (created_by = auth.uid() or is_work_admin());
 
 -- work_memos
+drop policy if exists "Users can read own memos" on work_memos;
 create policy "Users can read own memos"
   on work_memos for select
   using (author_id = auth.uid());
 
+drop policy if exists "Users can insert own memos" on work_memos;
 create policy "Users can insert own memos"
   on work_memos for insert
   with check (author_id = auth.uid());
 
+drop policy if exists "Users can update own memos" on work_memos;
 create policy "Users can update own memos"
   on work_memos for update
   using (author_id = auth.uid());
 
+drop policy if exists "Users can delete own memos" on work_memos;
 create policy "Users can delete own memos"
   on work_memos for delete
   using (author_id = auth.uid());
 
 -- work_notifications
+drop policy if exists "Users can read own notifications" on work_notifications;
 create policy "Users can read own notifications"
   on work_notifications for select
   using (profile_id = auth.uid());
 
+drop policy if exists "Users can update own notifications" on work_notifications;
 create policy "Users can update own notifications"
   on work_notifications for update
   using (profile_id = auth.uid());
 
 -- ── Auth trigger: create work_profiles on sign up ─────────────
 create or replace function handle_new_work_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer
+set search_path = public, auth
+as $$
 begin
-  insert into work_profiles (id, name, email, department, position, avatar_initial, avatar_color)
+  insert into public.work_profiles (id, name, email, department, position, avatar_initial, avatar_color)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
@@ -298,7 +433,7 @@ begin
     coalesce(new.raw_user_meta_data->>'department', ''),
     coalesce(new.raw_user_meta_data->>'position', ''),
     coalesce(new.raw_user_meta_data->>'avatar_initial', upper(substr(coalesce(new.raw_user_meta_data->>'name', new.email), 1, 1))),
-    '#1e1b4b'
+    coalesce(new.raw_user_meta_data->>'avatar_color', '#1e1b4b')
   );
   return new;
 end;
@@ -308,3 +443,40 @@ drop trigger if exists on_work_auth_user_created on auth.users;
 create trigger on_work_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_work_user();
+
+-- ── Storage: post attachments ────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('attachments', 'attachments', false)
+on conflict (id) do nothing;
+
+update storage.buckets
+set
+  file_size_limit = 52428800,
+  allowed_mime_types = array[
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'application/pdf',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-7z-compressed',
+    'application/vnd.rar',
+    'application/octet-stream'
+  ]::text[]
+where id = 'attachments';
+
+drop policy if exists "Approved users can upload attachments" on storage.objects;
+create policy "Approved users can upload attachments"
+  on storage.objects for insert
+  with check (bucket_id = 'attachments' and is_work_approved());
+
+drop policy if exists "Approved users can read attachments" on storage.objects;
+create policy "Approved users can read attachments"
+  on storage.objects for select
+  using (bucket_id = 'attachments' and is_work_approved());

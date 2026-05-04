@@ -1,5 +1,7 @@
 export type UserRole = 'admin' | 'member';
+export type BoardRole = 'leader' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
+export type WorkStatus = 'in_progress' | 'completed' | 'on_hold';
 
 export interface Profile {
   id: string;
@@ -20,6 +22,7 @@ export interface Board {
   description: string;
   icon: string;
   isPublic: boolean;
+  displayOrder?: number;
   createdAt: string;
 }
 
@@ -28,6 +31,7 @@ export interface Attachment {
   name: string;
   size: string;
   type: 'image' | 'pdf' | 'doc' | 'xls' | 'zip' | 'other';
+  storagePath?: string;
 }
 
 export interface Comment {
@@ -46,7 +50,14 @@ export interface Post {
   attachments: Attachment[];
   comments: Comment[];
   isPinned: boolean;
+  workStatus?: WorkStatus;
+  assigneeId?: string;
   createdAt: string;
+}
+
+export interface FeedDateCount {
+  date: string;
+  count: number;
 }
 
 export interface WorkReport {
@@ -93,4 +104,5 @@ export interface Notification {
 export interface BoardPermission {
   profileId: string;
   boardId: string;
+  role?: BoardRole;
 }

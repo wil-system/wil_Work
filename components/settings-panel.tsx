@@ -1,11 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell, Palette } from 'lucide-react';
 
-const SETTING_KEYS = [
-  '새 댓글 알림', '가입 승인 알림', '이메일 알림', '다크 모드', '알림 배지 표시',
-] as const;
-type SettingKey = typeof SETTING_KEYS[number];
+type SettingKey =
+  | '새 댓글 알림'
+  | '가입 승인 알림'
+  | '이메일 알림'
+  | '다크 모드'
+  | '알림 배지 표시';
 
 const DEFAULT_SETTINGS: Record<SettingKey, boolean> = {
   '새 댓글 알림': true,
@@ -37,20 +39,22 @@ const SECTIONS = [
 
 const STORAGE_KEY = 'wil_settings';
 
-export default function SettingsPanel() {
-  const [settings, setSettings] = useState<Record<SettingKey, boolean>>(DEFAULT_SETTINGS);
-  const [mounted, setMounted] = useState(false);
+function getInitialSettings(): Record<SettingKey, boolean> {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<Record<SettingKey, boolean>>;
-        setSettings(prev => ({ ...prev, ...parsed }));
-      }
-    } catch {}
-    setMounted(true);
-  }, []);
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_SETTINGS;
+
+    const parsed = JSON.parse(stored) as Partial<Record<SettingKey, boolean>>;
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export default function SettingsPanel() {
+  const [settings, setSettings] = useState<Record<SettingKey, boolean>>(getInitialSettings);
 
   function toggle(key: SettingKey) {
     setSettings(prev => {
@@ -59,8 +63,6 @@ export default function SettingsPanel() {
       return next;
     });
   }
-
-  if (!mounted) return null;
 
   return (
     <div className="space-y-4">
