@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { mockNotifications } from '@/lib/mock-data';
 import type { Notification } from '@/lib/types';
 
 function toNotification(row: Record<string, unknown>): Notification {
@@ -14,6 +16,8 @@ function toNotification(row: Record<string, unknown>): Notification {
 }
 
 export async function getMyNotifications(): Promise<Notification[]> {
+  if (isDemoMode()) return mockNotifications;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -27,6 +31,8 @@ export async function getMyNotifications(): Promise<Notification[]> {
 }
 
 export async function getUnreadNotificationCount(): Promise<number> {
+  if (isDemoMode()) return mockNotifications.filter(notification => !notification.isRead).length;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 0;
@@ -40,6 +46,8 @@ export async function getUnreadNotificationCount(): Promise<number> {
 }
 
 export async function markAllRead(): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;

@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { mockBoardPermissions, mockBoards, mockProfiles } from '@/lib/mock-data';
 import type { Board, BoardPermission, BoardRole } from '@/lib/types';
 
 function toBoard(row: Record<string, unknown>): Board {
@@ -14,6 +16,8 @@ function toBoard(row: Record<string, unknown>): Board {
 }
 
 export async function getAllBoards(): Promise<Board[]> {
+  if (isDemoMode()) return mockBoards;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_boards')
@@ -25,6 +29,16 @@ export async function getAllBoards(): Promise<Board[]> {
 }
 
 export async function getAccessibleBoards(userId: string): Promise<Board[]> {
+  if (isDemoMode()) {
+    const profile = mockProfiles.find(item => item.id === userId);
+    if (!profile) return [];
+    if (profile.role === 'admin') return mockBoards;
+    const permittedIds = mockBoardPermissions
+      .filter(permission => permission.profileId === userId)
+      .map(permission => permission.boardId);
+    return mockBoards.filter(board => board.isPublic || permittedIds.includes(board.id));
+  }
+
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from('work_profiles').select('role').eq('id', userId).single();
@@ -54,6 +68,8 @@ export async function getAccessibleBoards(userId: string): Promise<Board[]> {
 }
 
 export async function getAllBoardPermissions(): Promise<BoardPermission[]> {
+  if (isDemoMode()) return mockBoardPermissions;
+
   const supabase = await createClient();
   const { data, error } = await supabase.from('work_board_permissions').select('*');
   if (error) throw error;
@@ -65,6 +81,10 @@ export async function getAllBoardPermissions(): Promise<BoardPermission[]> {
 }
 
 export async function getBoardPermissionRole(profileId: string, boardId: string): Promise<BoardRole> {
+  if (isDemoMode()) {
+    return mockBoardPermissions.find(permission => permission.profileId === profileId && permission.boardId === boardId)?.role ?? 'member';
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_board_permissions')
@@ -78,6 +98,8 @@ export async function getBoardPermissionRole(profileId: string, boardId: string)
 }
 
 export async function toggleBoardPermission(profileId: string, boardId: string, grant: boolean): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   if (grant) {
     const { error } = await supabase.from('work_board_permissions').upsert({ profile_id: profileId, board_id: boardId });
@@ -90,6 +112,8 @@ export async function toggleBoardPermission(profileId: string, boardId: string, 
 }
 
 export async function removeBoardPermission(profileId: string, boardId: string): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from('work_board_permissions')
@@ -104,6 +128,8 @@ export async function setBoardPermissionRole(
   boardId: string,
   role: NonNullable<BoardPermission['role']>
 ): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from('work_board_permissions')
@@ -116,6 +142,8 @@ export async function setBoardPermissionRole(
 }
 
 export async function createBoard(board: Omit<Board, 'createdAt'>): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase.from('work_boards').insert({
     id: board.id,
@@ -129,6 +157,8 @@ export async function createBoard(board: Omit<Board, 'createdAt'>): Promise<void
 }
 
 export async function deleteBoard(boardId: string): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from('work_boards')
@@ -141,6 +171,8 @@ export async function deleteBoard(boardId: string): Promise<void> {
 export async function updateBoardSettings(
   boards: Array<Pick<Board, 'id' | 'name' | 'isPublic' | 'displayOrder'>>
 ): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const results = await Promise.all(boards.map(board =>
     supabase

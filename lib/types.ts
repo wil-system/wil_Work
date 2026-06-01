@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'member';
 export type BoardRole = 'leader' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 export type WorkStatus = 'in_progress' | 'completed' | 'on_hold';
+export type ReportPeriodType = 'day' | 'week' | 'month' | 'custom';
+export type ReportReviewStatus = 'draft' | 'submitted' | 'reviewed' | 'changes_requested';
 
 export interface Profile {
   id: string;
@@ -63,11 +65,26 @@ export interface FeedDateCount {
 export interface WorkReport {
   id: string;
   authorId: string;
+  boardId: string;
   date: string;
+  periodStart: string;
+  periodEnd: string;
+  periodLabel: string;
+  periodType: ReportPeriodType;
+  goals: string[];
+  progress: string[];
+  nextPlan: string[];
   plannedTasks: string[];
   completedTasks: string[];
   issues?: string;
   status: 'draft' | 'submitted' | 'reviewed';
+  reviewStatus: ReportReviewStatus;
+  previousReportId?: string;
+  reviewerId?: string;
+  reviewComment?: string;
+  reviewedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CalendarEvent {

@@ -72,16 +72,27 @@ create table if not exists work_comments (
 create table if not exists work_reports (
   id uuid primary key default gen_random_uuid(),
   author_id uuid references work_profiles(id) on delete cascade not null,
+  board_id text references work_boards(id) on delete cascade not null default 'feed',
   date date not null default current_date,
+  period_start date not null default current_date,
+  period_end date not null default current_date,
+  period_label text not null default '',
+  period_type text not null default 'day' check (period_type in ('day', 'week', 'month', 'custom')),
+  goals text[] not null default '{}',
+  progress text[] not null default '{}',
   planned_tasks text[] not null default '{}',
   completed_tasks text[] not null default '{}',
   issues text,
+  next_plan text[] not null default '{}',
   status text not null default 'draft' check (status in ('draft', 'submitted', 'reviewed')),
+  review_status text not null default 'draft' check (review_status in ('draft', 'submitted', 'reviewed', 'changes_requested')),
+  previous_report_id uuid references work_reports(id) on delete set null,
+  reviewer_id uuid references work_profiles(id) on delete set null,
+  review_comment text,
+  reviewed_at timestamptz,
+  updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
-
-create unique index if not exists work_reports_author_date_key
-  on work_reports(author_id, date);
 
 -- Calendar events
 create table if not exists work_calendar_events (
@@ -162,6 +173,39 @@ returns boolean language sql security definer as $$
   );
 $$;
 
+create or replace function is_work_board_leader(p_board_id text)
+returns boolean language sql security definer as $$
+  select exists (
+    select 1 from work_board_permissions
+    where profile_id = auth.uid()
+      and board_id = p_board_id
+      and board_role = 'leader'
+  );
+$$;
+
+create or replace function is_work_report_reviewer(p_board_id text, p_author_id uuid)
+returns boolean language sql security definer as $$
+  select auth.uid() is not null
+    and auth.uid() <> p_author_id
+    and (
+      is_work_admin()
+      or (
+        is_work_board_leader(p_board_id)
+        and not exists (
+          select 1 from work_profiles author
+          where author.id = p_author_id
+            and author.role = 'admin'
+        )
+        and not exists (
+          select 1 from work_board_permissions author_permission
+          where author_permission.profile_id = p_author_id
+            and author_permission.board_id = p_board_id
+            and author_permission.board_role = 'leader'
+        )
+      )
+    );
+$$;
+
 create or replace function get_feed_post_counts_by_day()
 returns table(date date, count bigint)
 language sql
@@ -230,6 +274,92 @@ begin
         and existing.type = 'mention'
         and existing.link = v_link
     );
+
+  get diagnostics v_inserted = row_count;
+  return v_inserted;
+end;
+$$;
+
+create or replace function public.create_report_notifications(
+  p_report_id uuid,
+  p_event text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_author_id uuid;
+  v_author_name text;
+  v_board_id text;
+  v_board_name text;
+  v_period_label text;
+  v_review_status text;
+  v_link text := '/work-report?report=' || p_report_id::text;
+  v_inserted integer := 0;
+begin
+  if v_actor_id is null or p_event not in ('submitted', 'reviewed', 'changes_requested') then
+    return 0;
+  end if;
+
+  select
+    report.author_id,
+    author.name,
+    report.board_id,
+    board.name,
+    report.period_label,
+    report.review_status
+  into v_author_id, v_author_name, v_board_id, v_board_name, v_period_label, v_review_status
+  from public.work_reports report
+  join public.work_profiles author on author.id = report.author_id
+  join public.work_boards board on board.id = report.board_id
+  where report.id = p_report_id;
+
+  if v_author_id is null then
+    return 0;
+  end if;
+
+  if p_event = 'submitted' then
+    insert into public.work_notifications (profile_id, type, title, body, link)
+    select recipient.id, 'report', '업무보고 제출', v_author_name || '님이 ' || v_period_label || ' 업무보고를 제출했습니다.', v_link
+    from public.work_profiles recipient
+    where recipient.status = 'approved'
+      and recipient.id <> v_actor_id
+      and (
+        recipient.role = 'admin'
+        or exists (
+          select 1 from public.work_board_permissions permission
+          where permission.profile_id = recipient.id
+            and permission.board_id = v_board_id
+            and permission.board_role = 'leader'
+        )
+      )
+      and not exists (
+        select 1 from public.work_notifications existing
+        where existing.profile_id = recipient.id
+          and existing.type = 'report'
+          and existing.link = v_link
+          and existing.title = '업무보고 제출'
+      );
+  else
+    insert into public.work_notifications (profile_id, type, title, body, link)
+    select
+      v_author_id,
+      'report',
+      case when p_event = 'reviewed' then '업무보고 검토완료' else '업무보고 수정요청' end,
+      v_board_name || ' ' || v_period_label || ' 업무보고 검토 상태가 변경되었습니다.',
+      v_link
+    where v_author_id <> v_actor_id
+      and not exists (
+        select 1 from public.work_notifications existing
+        where existing.profile_id = v_author_id
+          and existing.type = 'report'
+          and existing.link = v_link
+          and existing.title = case when p_event = 'reviewed' then '업무보고 검토완료' else '업무보고 수정요청' end
+      );
+  end if;
 
   get diagnostics v_inserted = row_count;
   return v_inserted;
@@ -357,19 +487,52 @@ create policy "Authors can delete own comments"
 
 -- work_reports
 drop policy if exists "Users can read all reports" on work_reports;
-create policy "Users can read all reports"
+drop policy if exists "Users can read accessible reports" on work_reports;
+create policy "Users can read accessible reports"
   on work_reports for select
-  using (is_work_approved());
+  using (
+    is_work_approved()
+    and (
+      author_id = auth.uid()
+      or is_work_report_reviewer(board_id, author_id)
+    )
+  );
 
 drop policy if exists "Users can insert own reports" on work_reports;
 create policy "Users can insert own reports"
   on work_reports for insert
-  with check (is_work_approved() and author_id = auth.uid());
+  with check (
+    is_work_approved()
+    and author_id = auth.uid()
+    and board_id not in ('feed', 'notice')
+    and (
+      is_work_admin()
+      or (select is_public from work_boards where id = board_id) = true
+      or exists (
+        select 1 from work_board_permissions
+        where profile_id = auth.uid() and board_id = work_reports.board_id
+      )
+    )
+  );
 
 drop policy if exists "Users can update own reports" on work_reports;
-create policy "Users can update own reports"
+drop policy if exists "Users can update accessible reports" on work_reports;
+create policy "Users can update accessible reports"
   on work_reports for update
-  using (author_id = auth.uid() or is_work_admin());
+  using (
+    is_work_approved()
+    and (
+      (author_id = auth.uid() and review_status in ('draft', 'submitted', 'changes_requested'))
+      or is_work_report_reviewer(board_id, author_id)
+    )
+  )
+  with check (
+    is_work_approved()
+    and (
+      author_id = auth.uid()
+      or is_work_report_reviewer(board_id, author_id)
+    )
+  );
 
 -- work_calendar_events
 drop policy if exists "Approved users can read all events" on work_calendar_events;

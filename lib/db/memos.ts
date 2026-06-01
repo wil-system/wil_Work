@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { mockMemos } from '@/lib/mock-data';
 import type { Memo } from '@/lib/types';
 
 function toMemo(row: Record<string, unknown>): Memo {
@@ -14,6 +16,12 @@ function toMemo(row: Record<string, unknown>): Memo {
 }
 
 export async function getMyMemos(authorId: string): Promise<Memo[]> {
+  if (isDemoMode()) {
+    return mockMemos
+      .filter(memo => memo.authorId === authorId)
+      .sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt.localeCompare(a.updatedAt));
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_memos')
@@ -26,6 +34,8 @@ export async function getMyMemos(authorId: string): Promise<Memo[]> {
 }
 
 export async function createMemo(memo: Omit<Memo, 'id' | 'updatedAt'>): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase.from('work_memos').insert({
     author_id: memo.authorId,
@@ -38,6 +48,8 @@ export async function createMemo(memo: Omit<Memo, 'id' | 'updatedAt'>): Promise<
 }
 
 export async function updateMemo(id: string, updates: Partial<Pick<Memo, 'title' | 'content' | 'tags' | 'isPinned'>>): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase.from('work_memos').update({
     ...(updates.title !== undefined && { title: updates.title }),

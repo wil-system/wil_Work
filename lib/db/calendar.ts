@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { mockCalendarEvents } from '@/lib/mock-data';
 import type { CalendarEvent } from '@/lib/types';
 
 function toEvent(row: Record<string, unknown>): CalendarEvent {
@@ -15,6 +17,14 @@ function toEvent(row: Record<string, unknown>): CalendarEvent {
 }
 
 export async function getMonthEvents(year: number, month: number): Promise<CalendarEvent[]> {
+  if (isDemoMode()) {
+    const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const to = `${year}-${String(month + 1).padStart(2, '0')}-31`;
+    return mockCalendarEvents
+      .filter(event => event.date >= from && event.date <= to)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   const supabase = await createClient();
   const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
   const to = `${year}-${String(month + 1).padStart(2, '0')}-31`;
@@ -28,6 +38,8 @@ export async function getMonthEvents(year: number, month: number): Promise<Calen
 }
 
 export async function createCalendarEvent(event: Omit<CalendarEvent, 'id'>): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   await supabase.from('work_calendar_events').insert({
     title: event.title,

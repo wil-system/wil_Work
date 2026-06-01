@@ -8,6 +8,8 @@ import { getUnreadNotificationCount } from '@/lib/db/notifications';
 
 async function approveUser(formData: FormData) {
   'use server';
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== 'admin') return;
   const id = formData.get('id') as string;
   await updateProfileStatus(id, 'approved');
   revalidatePath('/admin/approvals');
@@ -15,6 +17,8 @@ async function approveUser(formData: FormData) {
 
 async function rejectUser(formData: FormData) {
   'use server';
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== 'admin') return;
   const id = formData.get('id') as string;
   await updateProfileStatus(id, 'rejected');
   revalidatePath('/admin/approvals');

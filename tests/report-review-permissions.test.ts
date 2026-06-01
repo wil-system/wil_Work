@@ -1,0 +1,87 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  canReviseWorkReport,
+  canSubmitReviewDecision,
+  canReviewWorkReport,
+  getReportAuthorLevel,
+  getReviewableAuthorProfiles,
+} from '../lib/report-review-permissions.ts';
+import type { BoardPermission, Profile, WorkReport } from '../lib/types.ts';
+
+const permissions: BoardPermission[] = [
+  { profileId: 'leader-1', boardId: 'sales', role: 'leader' },
+  { profileId: 'leader-2', boardId: 'sales', role: 'leader' },
+];
+
+const profiles: Profile[] = [
+  { id: 'admin-1', name: '관리자', email: 'admin@example.com', role: 'admin', status: 'approved', department: '경영', position: '관리자', avatarInitial: '관', avatarColor: '#000', joinedAt: '2026-01-01' },
+  { id: 'leader-1', name: '팀장1', email: 'leader1@example.com', role: 'member', status: 'approved', department: '영업', position: '팀장', avatarInitial: '팀', avatarColor: '#000', joinedAt: '2026-01-01' },
+  { id: 'leader-2', name: '팀장2', email: 'leader2@example.com', role: 'member', status: 'approved', department: '영업', position: '팀장', avatarInitial: '팀', avatarColor: '#000', joinedAt: '2026-01-01' },
+  { id: 'member-1', name: '팀원1', email: 'member1@example.com', role: 'member', status: 'approved', department: '영업', position: '팀원', avatarInitial: '팀', avatarColor: '#000', joinedAt: '2026-01-01' },
+];
+
+function report(authorId: string): Pick<WorkReport, 'authorId' | 'boardId'> {
+  return { authorId, boardId: 'sales' };
+}
+
+test('classifies report authors by admin, board leader, and member', () => {
+  assert.equal(getReportAuthorLevel(report('admin-1'), profiles[0], permissions), 'admin');
+  assert.equal(getReportAuthorLevel(report('leader-1'), profiles[1], permissions), 'leader');
+  assert.equal(getReportAuthorLevel(report('member-1'), profiles[3], permissions), 'member');
+});
+
+test('allows leaders to review member reports only', () => {
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[1],
+    report: report('member-1'),
+    author: profiles[3],
+    permissions,
+  }), true);
+
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[1],
+    report: report('leader-2'),
+    author: profiles[2],
+    permissions,
+  }), false);
+});
+
+test('allows admins to review leader reports but prevents self review', () => {
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[0],
+    report: report('leader-1'),
+    author: profiles[1],
+    permissions,
+  }), true);
+
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[0],
+    report: report('admin-1'),
+    author: profiles[0],
+    permissions,
+  }), false);
+});
+
+test('limits leader author filters to reviewable subordinate profiles', () => {
+  const authors = getReviewableAuthorProfiles({
+    reviewer: profiles[1],
+    boardIds: ['sales'],
+    profiles,
+    permissions,
+  });
+
+  assert.deepEqual(authors.map(author => author.id), ['member-1']);
+});
+
+test('allows review decisions only for reports waiting for review', () => {
+  assert.equal(canSubmitReviewDecision({ reviewStatus: 'submitted' }), true);
+  assert.equal(canSubmitReviewDecision({ reviewStatus: 'changes_requested' }), false);
+  assert.equal(canSubmitReviewDecision({ reviewStatus: 'reviewed' }), false);
+});
+
+test('allows authors to revise only reports with requested changes', () => {
+  assert.equal(canReviseWorkReport({ reviewStatus: 'changes_requested' }), true);
+  assert.equal(canReviseWorkReport({ reviewStatus: 'submitted' }), false);
+  assert.equal(canReviseWorkReport({ reviewStatus: 'reviewed' }), false);
+});

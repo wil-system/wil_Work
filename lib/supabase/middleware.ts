@@ -1,7 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isDemoMode } from '@/lib/demo-mode';
 
 export async function updateSession(request: NextRequest) {
+  if (isDemoMode()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -26,6 +31,9 @@ export async function updateSession(request: NextRequest) {
   const isWorkspacePath = !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/register') &&
     !request.nextUrl.pathname.startsWith('/pending') &&
+    !request.nextUrl.pathname.startsWith('/forgot-password') &&
+    !request.nextUrl.pathname.startsWith('/reset-password') &&
+    !request.nextUrl.pathname.startsWith('/auth/callback') &&
     !request.nextUrl.pathname.startsWith('/_next') &&
     !request.nextUrl.pathname.startsWith('/favicon');
 

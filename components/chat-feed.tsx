@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send, Pin, FileSpreadsheet, FileText, Image as ImageIcon,
   File, MessageSquare, ChevronDown, Paperclip, X as XIcon,
@@ -648,7 +648,7 @@ function FeedCalendarPanel({
   onSelectDate,
   onJumpLatest,
   variant = 'default',
-  className = 'hidden xl:flex w-[280px] flex-shrink-0 border-l bg-white flex-col',
+  className = 'hidden xl:flex h-full min-h-0 w-[280px] flex-shrink-0 flex-col overflow-y-auto border-l bg-white',
 }: {
   pinnedPosts: Post[];
   profiles: Record<string, ProfileInfo>;
@@ -895,13 +895,32 @@ export default function ChatFeed({
     ? pinnedPosts.filter(post => post.assigneeId === currentUserId)
     : pinnedPosts;
 
-  function scrollToPost(postId: string, behavior: ScrollBehavior = 'smooth') {
-    const target = scrollRef.current?.querySelector<HTMLElement>(`[data-feed-post-id="${postId}"]`);
+  function scrollBehavior(behavior: ScrollBehavior): ScrollBehavior {
+    return behavior === 'instant' ? 'auto' : behavior;
+  }
+
+  const scrollFeedToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: scrollBehavior(behavior) });
+  }, []);
+
+  const scrollToPost = useCallback((postId: string, behavior: ScrollBehavior = 'smooth') => {
+    const container = scrollRef.current;
+    if (!container) return false;
+
+    const target = container.querySelector<HTMLElement>(`[data-feed-post-id="${postId}"]`);
     if (!target) return false;
 
-    target.scrollIntoView({ behavior, block: 'center' });
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const nextTop = container.scrollTop + targetRect.top - containerRect.top - ((container.clientHeight - targetRect.height) / 2);
+    container.scrollTo({ top: Math.max(0, nextTop), behavior: scrollBehavior(behavior) });
     requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior, block: 'center' });
+      const updatedContainerRect = container.getBoundingClientRect();
+      const updatedTargetRect = target.getBoundingClientRect();
+      const updatedTop = container.scrollTop + updatedTargetRect.top - updatedContainerRect.top - ((container.clientHeight - updatedTargetRect.height) / 2);
+      container.scrollTo({ top: Math.max(0, updatedTop), behavior: scrollBehavior(behavior) });
       target.animate(
         [
           { boxShadow: '0 0 0 0 rgba(245,158,11,0)' },
@@ -912,11 +931,11 @@ export default function ChatFeed({
       );
     });
     return true;
-  }
+  }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'instant' });
-  }, []);
+    scrollFeedToBottom('instant');
+  }, [scrollFeedToBottom]);
 
   useEffect(() => {
     const linkedPostId = new URLSearchParams(window.location.search).get('post');
@@ -943,7 +962,7 @@ export default function ChatFeed({
     }
 
     void showLinkedPost();
-  }, []);
+  }, [boardId]);
 
   useEffect(() => {
     if (!pendingScrollPostRef.current) return;
@@ -951,7 +970,7 @@ export default function ChatFeed({
     if (scrollToPost(postId, behavior)) {
       pendingScrollPostRef.current = null;
     }
-  }, [posts]);
+  }, [posts, scrollToPost]);
 
   async function loadOlder() {
     if (loadingMore || !hasMoreOlder || posts.length === 0) return;
@@ -1059,7 +1078,7 @@ export default function ChatFeed({
     setHasMoreAfterDate(false);
     const sorted = sortPostsAscending(initialPosts);
     setActiveDate(sorted.length > 0 ? getPostDateKey(sorted[sorted.length - 1]) : null);
-    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' }));
+    requestAnimationFrame(() => scrollFeedToBottom('instant'));
   }
 
   function handleJumpLatest() {
@@ -1298,7 +1317,7 @@ export default function ChatFeed({
 
   return (
     <div
-      className="relative flex h-full overflow-hidden"
+      className="relative flex h-full min-h-0 overflow-hidden"
       style={isNotice ? { background: 'linear-gradient(180deg, #fff7ed 0%, var(--bg-canvas) 260px)' } : undefined}
     >
       <button
@@ -1360,9 +1379,9 @@ export default function ChatFeed({
         </div>
       )}
 
-      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Scrollable message list */}
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+        <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-3 sm:px-6 py-5 pb-3">
             {!anchorDate && hasMoreOlder && (
               <div className="py-2 text-center text-[11px] text-[var(--muted)]">

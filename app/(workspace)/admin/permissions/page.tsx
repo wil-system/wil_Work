@@ -28,6 +28,11 @@ export default async function PermissionsPage() {
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <PermissionsAdminPanel
+          key={[
+            ...members.map(member => `m:${member.id}`),
+            ...editableBoards.map(board => `b:${board.id}`),
+            ...permissions.map(permission => `p:${permission.profileId}:${permission.boardId}:${permission.role}`),
+          ].join('|')}
           members={members}
           boards={editableBoards}
           permissions={permissions}

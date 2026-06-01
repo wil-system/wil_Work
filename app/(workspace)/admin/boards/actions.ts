@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { createBoard, deleteBoard, updateBoardSettings } from '@/lib/db/boards';
+import { getCurrentProfile } from '@/lib/db/profiles';
 
 function revalidateBoardViews(boardId?: string) {
   revalidatePath('/admin/boards');
@@ -10,6 +11,9 @@ function revalidateBoardViews(boardId?: string) {
 }
 
 export async function addBoard(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== 'admin') return { success: false, error: '관리자만 저장할 수 있습니다.' };
+
   const name = (formData.get('name') as string ?? '').trim();
   const id = (formData.get('id') as string ?? '').trim().toLowerCase().replace(/\s+/g, '-');
   const description = (formData.get('description') as string ?? '').trim();
@@ -27,6 +31,9 @@ export async function addBoard(formData: FormData): Promise<{ success: boolean; 
 }
 
 export async function removeBoard(boardId: string): Promise<{ success: boolean; error?: string }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== 'admin') return { success: false, error: '관리자만 삭제할 수 있습니다.' };
+
   if (!boardId || boardId === 'feed' || boardId === 'notice') {
     return { success: false, error: '기본 게시판은 삭제할 수 없습니다.' };
   }
@@ -43,6 +50,9 @@ export async function removeBoard(boardId: string): Promise<{ success: boolean; 
 export async function saveBoardSettings(
   boards: Array<{ id: string; name: string; isPublic: boolean }>
 ): Promise<{ success: boolean; error?: string }> {
+  const admin = await getCurrentProfile();
+  if (!admin || admin.role !== 'admin') return { success: false, error: '관리자만 저장할 수 있습니다.' };
+
   const normalized = boards.map((board, index) => ({
     id: board.id,
     name: board.name.trim(),

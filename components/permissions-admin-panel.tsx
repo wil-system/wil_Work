@@ -1,5 +1,5 @@
 'use client';
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import type { Board, BoardPermission, BoardRole, Profile } from '@/lib/types';
 import { saveBoardPermissions } from '@/app/(workspace)/admin/permissions/actions';
@@ -33,10 +33,6 @@ export default function PermissionsAdminPanel({ members, boards, permissions }: 
   }, [boards, members, permissions]);
 
   const [cells, setCells] = useState(initialCells);
-
-  useEffect(() => {
-    setCells(initialCells);
-  }, [initialCells]);
 
   function updateCell(key: string, patch: Partial<{ allowed: boolean; role: BoardRole }>) {
     setCells(current => {

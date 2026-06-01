@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { CURRENT_USER_ID, mockProfiles } from '@/lib/mock-data';
 import type { Profile } from '@/lib/types';
 
 function toProfile(row: Record<string, unknown>): Profile {
@@ -17,6 +19,8 @@ function toProfile(row: Record<string, unknown>): Profile {
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {
+  if (isDemoMode()) return mockProfiles.find(profile => profile.id === CURRENT_USER_ID) ?? null;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -32,6 +36,8 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 }
 
 export async function getAllProfiles(): Promise<Profile[]> {
+  if (isDemoMode()) return mockProfiles;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_profiles')
@@ -42,6 +48,8 @@ export async function getAllProfiles(): Promise<Profile[]> {
 }
 
 export async function getPendingProfiles(): Promise<Profile[]> {
+  if (isDemoMode()) return mockProfiles.filter(profile => profile.status === 'pending');
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_profiles')
@@ -53,6 +61,8 @@ export async function getPendingProfiles(): Promise<Profile[]> {
 }
 
 export async function updateProfileStatus(id: string, status: 'approved' | 'rejected'): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase.from('work_profiles').update({ status }).eq('id', id);
   if (error) throw error;

@@ -69,7 +69,12 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">비밀번호</label>
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <label className="block text-[12px] font-semibold text-[var(--stone-700)]">비밀번호</label>
+                <Link href="/forgot-password" className="text-[11px] font-semibold text-[var(--indigo-600)] hover:underline">
+                  비밀번호 재설정
+                </Link>
+              </div>
               <input
                 type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••" required

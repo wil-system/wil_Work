@@ -24,7 +24,7 @@ export default async function BoardsAdminPage() {
         unreadCount={unreadCount}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 max-w-2xl">
-        <BoardAdminPanel boards={boards} />
+        <BoardAdminPanel key={boards.map(board => `${board.id}:${board.name}:${board.isPublic}:${board.displayOrder}`).join('|')} boards={boards} />
       </div>
     </div>
   );

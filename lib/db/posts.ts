@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { isDemoMode } from '@/lib/demo-mode';
+import { mockPosts } from '@/lib/mock-data';
 import type { FeedDateCount, Post, Attachment } from '@/lib/types';
 
 function toPost(row: Record<string, unknown>): Post {
@@ -29,6 +31,11 @@ function toPost(row: Record<string, unknown>): Post {
 }
 
 export async function getPostsForBoard(boardId: string): Promise<Post[]> {
+  if (isDemoMode()) {
+    const posts = boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId);
+    return [...posts].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || b.createdAt.localeCompare(a.createdAt));
+  }
+
   const supabase = await createClient();
   const query = supabase
     .from('work_posts')
@@ -59,11 +66,25 @@ function pageResult(rows: Record<string, unknown>[] | null, limit: number): Feed
   };
 }
 
+function demoPageResult(rows: Post[], limit: number): FeedPostPage {
+  const pageRows = rows.slice(0, limit);
+  return {
+    posts: pageRows,
+    hasMore: rows.length > limit,
+  };
+}
+
 export async function getLatestFeedPosts(limit = 20): Promise<FeedPostPage> {
   return getLatestBoardPosts('feed', limit);
 }
 
 export async function getLatestBoardPosts(boardId: string, limit = 20): Promise<FeedPostPage> {
+  if (isDemoMode()) {
+    const posts = (boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return demoPageResult(posts, limit);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -81,6 +102,13 @@ export async function getPinnedFeedPosts(limit = 20): Promise<Post[]> {
 }
 
 export async function getPinnedBoardPosts(boardId: string, limit = 20): Promise<Post[]> {
+  if (isDemoMode()) {
+    return (boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId))
+      .filter(post => post.isPinned)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -95,6 +123,13 @@ export async function getPinnedBoardPosts(boardId: string, limit = 20): Promise<
 }
 
 export async function getBoardTaskPosts(boardId: string, limit = 100): Promise<Post[]> {
+  if (isDemoMode()) {
+    return mockPosts
+      .filter(post => post.boardId === boardId && post.workStatus)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -113,6 +148,10 @@ export async function getFeedPostById(postId: string): Promise<Post | null> {
 }
 
 export async function getBoardPostById(boardId: string, postId: string): Promise<Post | null> {
+  if (isDemoMode()) {
+    return mockPosts.find(post => post.id === postId && (boardId === 'feed' || post.boardId === boardId)) ?? null;
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -130,6 +169,13 @@ export async function getOlderFeedPosts(beforeCreatedAt: string, limit = 20): Pr
 }
 
 export async function getOlderBoardPosts(boardId: string, beforeCreatedAt: string, limit = 20): Promise<FeedPostPage> {
+  if (isDemoMode()) {
+    const posts = (boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId))
+      .filter(post => post.createdAt < beforeCreatedAt)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return demoPageResult(posts, limit);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -157,6 +203,15 @@ export async function getBoardPostsFromDate(
   afterCreatedAt?: string,
   limit = 20
 ): Promise<FeedPostPage> {
+  if (isDemoMode()) {
+    const start = `${date}T00:00:00`;
+    const posts = (boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId))
+      .filter(post => post.createdAt >= start)
+      .filter(post => !afterCreatedAt || post.createdAt > afterCreatedAt)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return demoPageResult(posts, limit);
+  }
+
   const supabase = await createClient();
   const start = `${date}T00:00:00+09:00`;
   const query = supabase
@@ -180,6 +235,16 @@ export async function getFeedDateCounts(): Promise<FeedDateCount[]> {
 }
 
 export async function getBoardDateCounts(boardId: string): Promise<FeedDateCount[]> {
+  if (isDemoMode()) {
+    const counts = new Map<string, number>();
+    const posts = boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId);
+    for (const post of posts) {
+      const date = post.createdAt.slice(0, 10);
+      counts.set(date, (counts.get(date) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   if (boardId === 'feed') {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc('get_feed_post_counts_by_day');
@@ -214,6 +279,8 @@ export async function createPost(post: {
   title?: string;
   content: string;
 }): Promise<string> {
+  if (isDemoMode()) return `demo-post-${Date.now()}`;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('work_posts')
@@ -234,6 +301,8 @@ export async function createComment(comment: {
   authorId: string;
   content: string;
 }): Promise<void> {
+  if (isDemoMode()) return;
+
   const supabase = await createClient();
   const { error } = await supabase.from('work_comments').insert({
     post_id: comment.postId,

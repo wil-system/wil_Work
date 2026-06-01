@@ -27,16 +27,18 @@ export default async function FeedPage() {
         currentUser={user}
         unreadCount={unreadCount}
       />
-      <ChatFeed
-        key={feedPage.posts.map(post => post.id).join(':')}
-        initialPosts={feedPage.posts}
-        initialPinnedPosts={pinnedPosts}
-        initialHasMoreOlder={feedPage.hasMore}
-        dateCounts={dateCounts}
-        currentUserId={user.id}
-        currentUserProfile={profileMap[user.id]}
-        profiles={profileMap}
-      />
+      <div className="min-h-0 flex-1">
+        <ChatFeed
+          key={feedPage.posts.map(post => post.id).join(':')}
+          initialPosts={feedPage.posts}
+          initialPinnedPosts={pinnedPosts}
+          initialHasMoreOlder={feedPage.hasMore}
+          dateCounts={dateCounts}
+          currentUserId={user.id}
+          currentUserProfile={profileMap[user.id]}
+          profiles={profileMap}
+        />
+      </div>
     </div>
   );
 }

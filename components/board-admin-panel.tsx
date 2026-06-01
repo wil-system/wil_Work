@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle, Dot, Globe, GripVertical, Lock, Plus, RotateCcw, Save, Trash2, X,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ interface BoardAdminPanelProps {
 }
 
 export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
+  const router = useRouter();
   const menuBoards = useMemo(() => {
     const editableBoards = boards.filter(board => board.id !== 'feed');
     return [
@@ -27,10 +29,6 @@ export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setItems(menuBoards);
-  }, [menuBoards]);
 
   const hasChanges = items.some((item, index) => {
     const original = menuBoards[index];
@@ -108,6 +106,7 @@ export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
     setSubmitting(false);
     if (result.success) {
       setShowForm(false);
+      router.refresh();
     } else {
       setError(result.error ?? '오류가 발생했습니다.');
     }

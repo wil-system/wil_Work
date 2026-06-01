@@ -17,7 +17,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const WORKSPACE_NAV = [
-  { href: '/work-report', label: '업무보고', icon: FileText },
   { href: '/calendar',    label: '캘린더',   icon: Calendar },
   { href: '/memo',        label: '메모장',   icon: StickyNote },
 ];
@@ -32,9 +31,16 @@ const ADMIN_NAV = [
 interface BoardSidebarProps {
   currentUser: Profile;
   boards?: Board[];
+  canWriteWorkReport?: boolean;
+  canReviewWorkReport?: boolean;
 }
 
-export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarProps) {
+export default function BoardSidebar({
+  currentUser,
+  boards = [],
+  canWriteWorkReport = true,
+  canReviewWorkReport = false,
+}: BoardSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [boardsOpen, setBoardsOpen] = useState(true);
@@ -113,6 +119,32 @@ export default function BoardSidebar({ currentUser, boards = [] }: BoardSidebarP
           <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>
             워크스페이스
           </div>
+          {(canWriteWorkReport || canReviewWorkReport) && (
+            <div>
+              <div className="mt-1 flex items-center gap-2.5 px-3 py-1 text-[11px] font-semibold" style={{ color: 'var(--stone-500)' }}>
+                <FileText size={13} style={{ color: 'var(--stone-400)' }} />
+                <span>업무게시판</span>
+              </div>
+              {canWriteWorkReport && (
+                <NavItem
+                  href="/work-report"
+                  icon={FileText}
+                  label="업무보고 작성"
+                  active={pathname === '/work-report'}
+                  nested
+                />
+              )}
+              {canReviewWorkReport && (
+                <NavItem
+                  href="/work-report/review"
+                  icon={LayoutList}
+                  label="업무보고 검토"
+                  active={isActive('/work-report/review')}
+                  nested
+                />
+              )}
+            </div>
+          )}
           {WORKSPACE_NAV.map(item => (
             <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} />
           ))}

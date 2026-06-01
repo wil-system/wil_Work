@@ -1,89 +1,272 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ClipboardCheck, History, PencilLine } from 'lucide-react';
 import Topbar from '@/components/topbar';
-import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
-import { getTodayReports } from '@/lib/db/reports';
-import { getCurrentProfile, getAllProfiles } from '@/lib/db/profiles';
+import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
+import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
-import type { WorkReport } from '@/lib/types';
+import { getMyReportHistory } from '@/lib/db/reports';
+import { canReviseWorkReport } from '@/lib/report-review-permissions';
+import type { ReportReviewStatus, WorkReport } from '@/lib/types';
 import WorkReportForm from '@/components/work-report-form';
 
-const STATUS_MAP: Record<WorkReport['status'], { label: string; variant: 'gray' | 'indigo' | 'green' }> = {
-  draft:     { label: '임시저장', variant: 'gray' },
-  submitted: { label: '제출완료', variant: 'indigo' },
-  reviewed:  { label: '검토완료', variant: 'green' },
+const REVIEW_LABEL: Record<ReportReviewStatus, string> = {
+  draft: '미제출',
+  submitted: '검토대기',
+  reviewed: '검토완료',
+  changes_requested: '수정요청',
 };
 
-export default async function WorkReportPage() {
-  const [reports, user, allProfiles, unreadCount] = await Promise.all([
-    getTodayReports(),
-    getCurrentProfile(),
-    getAllProfiles(),
-    getUnreadNotificationCount(),
-  ]);
+const REVIEW_VARIANT: Record<ReportReviewStatus, 'gray' | 'indigo' | 'green' | 'yellow'> = {
+  draft: 'gray',
+  submitted: 'indigo',
+  reviewed: 'green',
+  changes_requested: 'yellow',
+};
 
-  if (!user) redirect('/login');
+function one(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
-  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', '');
-  const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
+function ReportItems({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <div className="mb-1.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide">{title}</div>
+      {items.length === 0 ? (
+        <div className="rounded-md bg-[var(--stone-50)] px-2.5 py-2 text-[12px] text-[var(--stone-400)]">입력 없음</div>
+      ) : (
+        <ul className="space-y-1">
+          {items.map(item => (
+            <li key={item} className="rounded-md bg-[var(--stone-50)] px-2.5 py-1.5 text-[12px] text-[var(--stone-700)]">
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ReportDetail({
+  report,
+  departmentName,
+  reviewerName,
+}: {
+  report: WorkReport;
+  departmentName: string;
+  reviewerName?: string;
+}) {
+  const canEdit = canReviseWorkReport(report);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="업무보고" subtitle="일일 업무 현황을 기록하고 공유하세요" currentUser={user} unreadCount={unreadCount} />
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-
-          <div className="xl:col-span-1">
-            <WorkReportForm />
+    <div className="mb-4 rounded-lg border bg-white p-4" style={{ borderColor: 'var(--line)' }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-[14px] font-bold text-[var(--foreground)]">{report.periodLabel}</h3>
+            <Badge variant={REVIEW_VARIANT[report.reviewStatus]}>{REVIEW_LABEL[report.reviewStatus]}</Badge>
           </div>
-
-          <div className="xl:col-span-2 space-y-4">
-            <h2 className="text-[14px] font-bold text-[var(--foreground)]">팀원 업무보고 — {today}</h2>
-            {reports.length === 0 ? (
-              <div className="card p-12 text-center text-[var(--muted)] text-[13px]">오늘 제출된 업무보고가 없습니다.</div>
-            ) : reports.map(report => {
-              const author = profileMap[report.authorId];
-              if (!author) return null;
-              const status = STATUS_MAP[report.status];
-              const pending = report.plannedTasks.filter(t => !report.completedTasks.includes(t));
-              return (
-                <div key={report.id} className="card p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar initial={author.avatarInitial} color={author.avatarColor} size="md" />
-                      <div>
-                        <div className="text-[13px] font-semibold text-[var(--foreground)]">{author.name}</div>
-                        <div className="text-[11px] text-[var(--muted)]">{author.position}</div>
-                      </div>
-                    </div>
-                    <Badge variant={status.variant}>{status.label}</Badge>
-                  </div>
-                  <div className="space-y-1.5">
-                    {report.completedTasks.map((t, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[12px] text-[var(--stone-700)]">
-                        <CheckCircle2 size={13} className="text-[var(--success)] mt-0.5 flex-shrink-0" />
-                        {t}
-                      </div>
-                    ))}
-                    {pending.map((t, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[12px] text-[var(--muted)]">
-                        <Circle size={13} className="mt-0.5 flex-shrink-0" />
-                        {t}
-                      </div>
-                    ))}
-                  </div>
-                  {report.issues && (
-                    <div className="flex items-start gap-2 mt-3 px-3 py-2 rounded-lg bg-[var(--stone-100)] text-[12px] text-[var(--stone-700)]">
-                      <AlertCircle size={13} className="text-[var(--warning)] mt-0.5 flex-shrink-0" />
-                      {report.issues}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="mt-1 text-[11px] text-[var(--muted)]">
+            {departmentName} · {report.periodStart.replace(/-/g, '.')} - {report.periodEnd.replace(/-/g, '.')}
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <Link
+              href={`/work-report?mode=write&report=${report.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--indigo-600)' }}
+            >
+              <PencilLine size={14} />
+              수정하기
+            </Link>
+          )}
+          <Link href="/work-report" className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-600)] hover:bg-[var(--stone-50)]" style={{ borderColor: 'var(--line)' }}>
+            닫기
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportItems title="목표" items={report.goals} />
+        <ReportItems title="진행업무" items={report.progress} />
+        <div>
+          <div className="mb-1.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide">이슈사항</div>
+          <div className="min-h-10 whitespace-pre-line rounded-md bg-[var(--stone-50)] px-2.5 py-2 text-[12px] text-[var(--stone-700)]">
+            {report.issues || '입력 없음'}
+          </div>
+        </div>
+        <ReportItems title="다음계획" items={report.nextPlan} />
+      </div>
+
+      {report.reviewComment && (
+        <div className="mt-4 rounded-lg bg-[var(--indigo-50)] px-3 py-2 text-[12px] text-[var(--stone-700)]">
+          <span className="font-semibold text-[var(--indigo-700)]">검토 코멘트</span>
+          <span className="text-[var(--stone-400)]"> · </span>
+          <span className="font-semibold text-[var(--stone-700)]">{reviewerName ?? '검토자'}</span>
+          <span> · {report.reviewComment}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default async function WorkReportPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = (await searchParams) ?? {};
+  const user = await getCurrentProfile();
+  if (!user) redirect('/login');
+  const selectedReportId = one(params.report) || '';
+  const isWriting = one(params.mode) === 'write';
+
+  const [boards, permissions, unreadCount, myHistory, allProfiles] = await Promise.all([
+    getAccessibleBoards(user.id),
+    getAllBoardPermissions(),
+    getUnreadNotificationCount(),
+    getMyReportHistory(user.id),
+    getAllProfiles(),
+  ]);
+
+  const leaderBoardIds = new Set(
+    permissions
+      .filter(permission => permission.profileId === user.id && permission.role === 'leader')
+      .map(permission => permission.boardId)
+  );
+  const canReview = user.role === 'admin' || leaderBoardIds.size > 0;
+  const reportBoards = boards
+    .filter(board => board.id !== 'feed' && board.id !== 'notice')
+    .filter(board => user.role !== 'admin' || leaderBoardIds.has(board.id));
+
+  if (user.role === 'admin' && reportBoards.length === 0) {
+    redirect('/work-report/review');
+  }
+
+  const boardMap = Object.fromEntries(boards.map(board => [board.id, board]));
+  const profileMap = Object.fromEntries(allProfiles.map(profile => [profile.id, profile]));
+  const selectedReport = myHistory.find(report => report.id === selectedReportId);
+  const editableReport = isWriting && selectedReport && canReviseWorkReport(selectedReport) ? selectedReport : undefined;
+  const isEditingReport = Boolean(editableReport);
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <Topbar
+        title={isEditingReport ? '업무보고 수정' : isWriting ? '업무보고 작성' : '내 보고 히스토리'}
+        subtitle={isEditingReport ? '수정요청 받은 업무보고를 보완해 다시 제출합니다' : isWriting ? '부서와 기간을 선택해 목표, 진행업무, 이슈사항, 다음계획을 제출합니다' : '제출한 업무보고를 누적 확인합니다'}
+        breadcrumb={[{ label: '업무게시판', href: '/work-report' }, { label: isWriting ? '작성' : '히스토리' }]}
+        currentUser={user}
+        unreadCount={unreadCount}
+      />
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        {isWriting ? (
+          <div className="mx-auto max-w-3xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link
+                href="/work-report"
+                className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-[12px] font-semibold text-[var(--stone-700)] transition-colors hover:bg-[var(--stone-50)]"
+                style={{ borderColor: 'var(--line)' }}
+              >
+                <History size={14} className="text-[var(--stone-500)]" />
+                내 보고 히스토리
+              </Link>
+              {canReview && (
+                <Link
+                  href="/work-report/review"
+                  className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-[12px] font-semibold text-[var(--stone-700)] transition-colors hover:bg-[var(--stone-50)]"
+                  style={{ borderColor: 'var(--line)' }}
+                >
+                  <ClipboardCheck size={14} className="text-[var(--indigo-500)]" />
+                  검토 항목
+                </Link>
+              )}
+            </div>
+            <WorkReportForm boards={reportBoards} report={editableReport} />
+          </div>
+        ) : (
+          <section className="card mx-auto max-w-5xl p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[14px] font-bold text-[var(--foreground)]">내 보고 히스토리</h2>
+                <p className="mt-1 text-[12px] text-[var(--muted)]">최근 제출한 업무보고를 확인합니다.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/work-report?mode=write"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--indigo-600)' }}
+                >
+                  <PencilLine size={14} />
+                  업무보고 작성
+                </Link>
+              </div>
+            </div>
+
+            {canReview && (
+              <Link
+                href="/work-report/review"
+                className="mb-4 flex items-center justify-between rounded-lg border bg-white px-4 py-3 text-[12px] font-semibold text-[var(--stone-700)] transition-colors hover:bg-[var(--stone-50)]"
+                style={{ borderColor: 'var(--line)' }}
+              >
+                <span>검토 항목으로 이동</span>
+                <ClipboardCheck size={15} className="text-[var(--indigo-500)]" />
+              </Link>
+            )}
+
+            {myHistory.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-10 text-center text-[13px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
+                아직 작성한 보고가 없습니다.
+              </div>
+            ) : (
+              <>
+                {selectedReport ? (
+                  <ReportDetail
+                    report={selectedReport}
+                    departmentName={boardMap[selectedReport.boardId]?.name ?? selectedReport.boardId}
+                    reviewerName={selectedReport.reviewerId ? profileMap[selectedReport.reviewerId]?.name : undefined}
+                  />
+                ) : (
+                  <div className="mb-4 rounded-lg border border-dashed px-4 py-6 text-center text-[13px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
+                    히스토리 항목을 선택하면 상세 내용을 볼 수 있습니다.
+                  </div>
+                )}
+
+                <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--line)' }}>
+                  <div className="hidden grid-cols-[1fr_110px_120px] gap-3 bg-[var(--stone-50)] px-3 py-2 text-[11px] font-semibold text-[var(--muted)] sm:grid">
+                    <span>보고 기간</span>
+                    <span>부서</span>
+                    <span>상태</span>
+                  </div>
+                  <div className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                    {myHistory.slice(0, 20).map(report => {
+                      const isSelected = selectedReport?.id === report.id;
+                      return (
+                        <Link
+                          key={report.id}
+                          href={`/work-report?report=${report.id}`}
+                          aria-current={isSelected ? 'true' : undefined}
+                          className="grid grid-cols-1 gap-2 px-3 py-3 text-[12px] transition-colors hover:bg-[var(--stone-50)] sm:grid-cols-[1fr_110px_120px] sm:items-center"
+                          style={{ background: isSelected ? 'var(--indigo-50)' : 'white' }}
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-[var(--foreground)]">{report.periodLabel}</div>
+                            <div className="mt-0.5 text-[10px] text-[var(--muted)]">
+                              {report.periodStart.replace(/-/g, '.')} - {report.periodEnd.replace(/-/g, '.')}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-[var(--stone-600)]">{boardMap[report.boardId]?.name ?? report.boardId}</span>
+                          <Badge variant={REVIEW_VARIANT[report.reviewStatus]}>{REVIEW_LABEL[report.reviewStatus]}</Badge>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
