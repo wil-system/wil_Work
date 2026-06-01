@@ -14,7 +14,9 @@ interface TopbarProps {
 }
 
 export default function Topbar({ title, subtitle, breadcrumb, currentUser, unreadCount = 0 }: TopbarProps) {
-  const { open } = useSidebar();
+  const { open, notificationSettings } = useSidebar();
+  const showNotificationBadge = notificationSettings['알림 배지 표시'];
+
   return (
     <header
       className="h-14 flex items-center px-3 sm:px-6 gap-4 flex-shrink-0 sticky top-0 z-40 glass"
@@ -54,7 +56,7 @@ export default function Topbar({ title, subtitle, breadcrumb, currentUser, unrea
         onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
       >
         <Bell size={17} style={{ color: 'var(--stone-600)' }} />
-        {unreadCount > 0 && (
+        {showNotificationBadge && unreadCount > 0 && (
           <span
             className="absolute top-1 right-1 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
             style={{ background: 'var(--indigo-500)' }}

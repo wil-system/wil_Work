@@ -206,6 +206,9 @@ function ThreadPanel({
         content: reply.trim(),
       }).select('id, author_id, content, created_at').single();
       if (!error && data) {
+        await supabase.rpc('create_comment_notifications', {
+          p_comment_id: data.id,
+        });
         await supabase.rpc('create_feed_mention_notifications', {
           p_post_id: post.id,
           p_content: reply.trim(),

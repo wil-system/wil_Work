@@ -304,10 +304,16 @@ export async function createComment(comment: {
   if (isDemoMode()) return;
 
   const supabase = await createClient();
-  const { error } = await supabase.from('work_comments').insert({
+  const { data, error } = await supabase.from('work_comments').insert({
     post_id: comment.postId,
     author_id: comment.authorId,
     content: comment.content,
-  });
+  }).select('id').single();
   if (error) throw error;
+
+  if (data?.id) {
+    await supabase.rpc('create_comment_notifications', {
+      p_comment_id: data.id,
+    });
+  }
 }

@@ -3,15 +3,17 @@ import BoardSidebar from '@/components/board-sidebar';
 import { SidebarProvider } from '@/components/sidebar-context';
 import { getCurrentProfile } from '@/lib/db/profiles';
 import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
+import { getMyNotificationSettings } from '@/lib/db/notification-settings';
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentProfile();
   if (!user) redirect('/login');
   if (user.status === 'pending') redirect('/pending');
 
-  const [boards, permissions] = await Promise.all([
+  const [boards, permissions, notificationSettings] = await Promise.all([
     getAccessibleBoards(user.id),
     getAllBoardPermissions(),
+    getMyNotificationSettings(),
   ]);
   const leaderBoardIds = new Set(
     permissions
@@ -23,7 +25,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const canReviewWorkReport = user.role === 'admin' || leaderBoardIds.size > 0;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider initialNotificationSettings={notificationSettings}>
       <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-app)' }}>
         <BoardSidebar
           currentUser={user}

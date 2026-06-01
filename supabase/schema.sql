@@ -1,4 +1,4 @@
--- supabase/schema.sql
+﻿-- supabase/schema.sql
 -- Run this in Supabase SQL Editor (Dashboard > SQL Editor > New query)
 -- ALL tables use work_ prefix to avoid conflicts with existing tables
 
@@ -132,6 +132,15 @@ create table if not exists work_notifications (
   created_at timestamptz not null default now()
 );
 
+create table if not exists work_notification_settings (
+  profile_id uuid primary key references work_profiles(id) on delete cascade,
+  comment_notifications boolean not null default true,
+  approval_notifications boolean not null default true,
+  badge_notifications boolean not null default true,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 -- ── Seed: default boards ──────────────────────────────────────
 insert into work_boards (id, name, description, icon, is_public) values
   ('feed',      '전체 피드',  '모든 팀원의 소식을 확인하세요', 'LayoutDashboard', true),
@@ -152,6 +161,7 @@ alter table work_reports enable row level security;
 alter table work_calendar_events enable row level security;
 alter table work_memos enable row level security;
 alter table work_notifications enable row level security;
+alter table work_notification_settings enable row level security;
 
 -- ── RLS Policies ─────────────────────────────────────────────
 
@@ -272,6 +282,75 @@ begin
       from public.work_notifications existing
       where existing.profile_id = mentioned.id
         and existing.type = 'mention'
+        and existing.link = v_link
+    );
+
+  get diagnostics v_inserted = row_count;
+  return v_inserted;
+end;
+$$;
+
+create or replace function public.create_comment_notifications(
+  p_comment_id uuid
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_actor_name text;
+  v_post_id uuid;
+  v_post_author_id uuid;
+  v_board_id text;
+  v_link text;
+  v_inserted integer := 0;
+begin
+  if v_actor_id is null then
+    return 0;
+  end if;
+
+  select
+    work_comment.post_id,
+    work_comment.author_id,
+    actor.name,
+    post.author_id,
+    post.board_id
+  into v_post_id, v_actor_id, v_actor_name, v_post_author_id, v_board_id
+  from public.work_comments work_comment
+  join public.work_profiles actor on actor.id = work_comment.author_id
+  join public.work_posts post on post.id = work_comment.post_id
+  where work_comment.id = p_comment_id
+    and work_comment.author_id = auth.uid()
+    and actor.status = 'approved';
+
+  if v_post_id is null or v_post_author_id is null or v_post_author_id = v_actor_id then
+    return 0;
+  end if;
+
+  v_link := case
+    when v_board_id = 'feed' then '/feed?post=' || v_post_id::text || '&comment=' || p_comment_id::text
+    else '/board/' || v_board_id || '?post=' || v_post_id::text || '&comment=' || p_comment_id::text
+  end;
+
+  insert into public.work_notifications (profile_id, type, title, body, link)
+  select
+    recipient.id,
+    'comment',
+    '새 댓글',
+    v_actor_name || '님이 회원님의 게시글에 댓글을 남겼습니다.',
+    v_link
+  from public.work_profiles recipient
+  left join public.work_notification_settings settings on settings.profile_id = recipient.id
+  where recipient.id = v_post_author_id
+    and recipient.status = 'approved'
+    and coalesce(settings.comment_notifications, true) = true
+    and not exists (
+      select 1
+      from public.work_notifications existing
+      where existing.profile_id = recipient.id
+        and existing.type = 'comment'
         and existing.link = v_link
     );
 
@@ -582,22 +661,60 @@ create policy "Users can update own notifications"
   on work_notifications for update
   using (profile_id = auth.uid());
 
+drop policy if exists "Users can read own notification settings" on work_notification_settings;
+create policy "Users can read own notification settings"
+  on work_notification_settings for select
+  using (profile_id = auth.uid());
+
+drop policy if exists "Users can insert own notification settings" on work_notification_settings;
+create policy "Users can insert own notification settings"
+  on work_notification_settings for insert
+  with check (profile_id = auth.uid());
+
+drop policy if exists "Users can update own notification settings" on work_notification_settings;
+create policy "Users can update own notification settings"
+  on work_notification_settings for update
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
 -- ── Auth trigger: create work_profiles on sign up ─────────────
 create or replace function handle_new_work_user()
 returns trigger language plpgsql security definer
 set search_path = public, auth
 as $$
+declare
+  v_name text;
 begin
+  v_name := coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1));
+
   insert into public.work_profiles (id, name, email, department, position, avatar_initial, avatar_color)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    v_name,
     new.email,
     coalesce(new.raw_user_meta_data->>'department', ''),
     coalesce(new.raw_user_meta_data->>'position', ''),
-    coalesce(new.raw_user_meta_data->>'avatar_initial', upper(substr(coalesce(new.raw_user_meta_data->>'name', new.email), 1, 1))),
+    coalesce(new.raw_user_meta_data->>'avatar_initial', upper(substr(v_name, 1, 1))),
     coalesce(new.raw_user_meta_data->>'avatar_color', '#1e1b4b')
   );
+
+  insert into public.work_notification_settings (profile_id)
+  values (new.id)
+  on conflict (profile_id) do nothing;
+
+  insert into public.work_notifications (profile_id, type, title, body, link)
+  select
+    admin.id,
+    'approval',
+    '가입 승인 대기',
+    v_name || '님이 회원가입을 신청했습니다. 승인이 필요합니다.',
+    '/admin/approvals'
+  from public.work_profiles admin
+  left join public.work_notification_settings settings on settings.profile_id = admin.id
+  where admin.role = 'admin'
+    and admin.status = 'approved'
+    and coalesce(settings.approval_notifications, true) = true;
+
   return new;
 end;
 $$;
