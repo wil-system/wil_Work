@@ -179,25 +179,16 @@ export async function getReportPage(
   };
 }
 
+export async function getMyReportHistoryPage(
+  authorId: string,
+  pagination: { page: number; pageSize: number },
+): Promise<ReportPage> {
+  return getReportPage({ authorId }, pagination);
+}
+
 export async function getMyReportHistory(authorId: string): Promise<WorkReport[]> {
-  if (isDemoMode()) {
-    return demoReports
-      .filter(report => report.authorId === authorId)
-      .sort((a, b) => b.periodStart.localeCompare(a.periodStart))
-      .slice(0, 20);
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('work_reports')
-    .select('*')
-    .eq('author_id', authorId)
-    .order('period_start', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) throw error;
-  return (data ?? []).map(toReport);
+  const { reports } = await getMyReportHistoryPage(authorId, { page: 1, pageSize: 20 });
+  return reports;
 }
 
 export async function getReportById(reportId: string): Promise<WorkReport | null> {

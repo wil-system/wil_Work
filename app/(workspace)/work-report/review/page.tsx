@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import PaginationNav from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import WorkReportReviewSubmitButton from '@/components/work-report-review-submit-button';
@@ -7,6 +8,7 @@ import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getReportPage } from '@/lib/db/reports';
+import { getTotalPages, parsePageParam } from '@/lib/pagination';
 import {
   canReviewWorkReport,
   canSubmitReviewDecision,
@@ -54,11 +56,6 @@ function localDateOffset(days: number) {
 
 function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function parsePage(value: string | undefined) {
-  const page = Number(value);
-  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
 }
 
 function isReviewStatus(value: string | undefined): value is ReportReviewStatus {
@@ -209,58 +206,6 @@ function ReviewReportRow({
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  currentParams,
-}: {
-  page: number;
-  totalPages: number;
-  currentParams: Record<string, string>;
-}) {
-  if (totalPages <= 1) return null;
-  const visiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
-    .filter(item => item === 1 || item === totalPages || Math.abs(item - page) <= 2);
-
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
-      {page > 1 ? (
-        <Link href={buildReviewHref(currentParams, { page: page - 1 })} className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-700)]" style={{ borderColor: 'var(--line)' }}>
-          이전
-        </Link>
-      ) : (
-        <span className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-300)]" style={{ borderColor: 'var(--line)' }}>이전</span>
-      )}
-      {visiblePages.map((item, index) => {
-        const previous = visiblePages[index - 1];
-        return (
-          <span key={item} className="flex items-center gap-1.5">
-            {previous && item - previous > 1 && <span className="text-[12px] text-[var(--muted)]">...</span>}
-            <Link
-              href={buildReviewHref(currentParams, { page: item })}
-              className="rounded-lg border px-3 py-2 text-[12px] font-semibold"
-              style={{
-                borderColor: 'var(--line)',
-                background: item === page ? 'var(--indigo-600)' : 'white',
-                color: item === page ? 'white' : 'var(--stone-700)',
-              }}
-            >
-              {item}
-            </Link>
-          </span>
-        );
-      })}
-      {page < totalPages ? (
-        <Link href={buildReviewHref(currentParams, { page: page + 1 })} className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-700)]" style={{ borderColor: 'var(--line)' }}>
-          다음
-        </Link>
-      ) : (
-        <span className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-300)]" style={{ borderColor: 'var(--line)' }}>다음</span>
-      )}
-    </div>
-  );
-}
-
 export default async function WorkReportReviewPage({
   searchParams,
 }: {
@@ -276,7 +221,7 @@ export default async function WorkReportReviewPage({
   const department = one(params.department) || '';
   const statusParam = one(params.status);
   const reviewStatus = isReviewStatus(statusParam) ? statusParam : undefined;
-  const page = parsePage(one(params.page));
+  const page = parsePageParam(one(params.page));
 
   const [boards, allProfiles, permissions, unreadCount] = await Promise.all([
     getAccessibleBoards(user.id),
@@ -331,7 +276,7 @@ export default async function WorkReportReviewPage({
       permissions,
     })
   );
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = getTotalPages(total, PAGE_SIZE);
   const normalizedPage = Math.min(page, totalPages);
   const profileMap = Object.fromEntries(allProfiles.map(profile => [profile.id, profile]));
   const baseParams: Record<string, string> = {
@@ -459,7 +404,12 @@ export default async function WorkReportReviewPage({
             )}
           </section>
 
-          <Pagination page={normalizedPage} totalPages={totalPages} currentParams={currentParams} />
+          <PaginationNav
+            basePath="/work-report/review"
+            page={normalizedPage}
+            totalPages={totalPages}
+            currentParams={currentParams}
+          />
         </div>
       </div>
     </div>

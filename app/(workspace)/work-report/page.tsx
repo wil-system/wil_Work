@@ -1,15 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ClipboardCheck, History, PencilLine } from 'lucide-react';
+import PaginationNav, { buildPaginationHref } from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
-import { getMyReportHistory } from '@/lib/db/reports';
+import { getMyReportHistoryPage, getReportById } from '@/lib/db/reports';
+import { getTotalPages, parsePageParam } from '@/lib/pagination';
 import { canReviseWorkReport } from '@/lib/report-review-permissions';
 import type { ReportReviewStatus, WorkReport } from '@/lib/types';
 import WorkReportForm from '@/components/work-report-form';
+
+const HISTORY_PAGE_SIZE = 15;
 
 const REVIEW_LABEL: Record<ReportReviewStatus, string> = {
   draft: '미제출',
@@ -52,10 +56,12 @@ function ReportDetail({
   report,
   departmentName,
   reviewerName,
+  closeHref,
 }: {
   report: WorkReport;
   departmentName: string;
   reviewerName?: string;
+  closeHref: string;
 }) {
   const canEdit = canReviseWorkReport(report);
 
@@ -82,7 +88,7 @@ function ReportDetail({
               수정하기
             </Link>
           )}
-          <Link href="/work-report" className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-600)] hover:bg-[var(--stone-50)]" style={{ borderColor: 'var(--line)' }}>
+          <Link href={closeHref} className="rounded-lg border px-3 py-2 text-[12px] font-semibold text-[var(--stone-600)] hover:bg-[var(--stone-50)]" style={{ borderColor: 'var(--line)' }}>
             닫기
           </Link>
         </div>
@@ -122,13 +128,15 @@ export default async function WorkReportPage({
   if (!user) redirect('/login');
   const selectedReportId = one(params.report) || '';
   const isWriting = one(params.mode) === 'write';
+  const page = parsePageParam(one(params.page));
 
-  const [boards, permissions, unreadCount, myHistory, allProfiles] = await Promise.all([
+  const [boards, permissions, unreadCount, historyPage, allProfiles, selectedReportCandidate] = await Promise.all([
     getAccessibleBoards(user.id),
     getAllBoardPermissions(),
     getUnreadNotificationCount(),
-    getMyReportHistory(user.id),
+    getMyReportHistoryPage(user.id, { page, pageSize: HISTORY_PAGE_SIZE }),
     getAllProfiles(),
+    selectedReportId ? getReportById(selectedReportId) : Promise.resolve(null),
   ]);
 
   const leaderBoardIds = new Set(
@@ -147,9 +155,19 @@ export default async function WorkReportPage({
 
   const boardMap = Object.fromEntries(boards.map(board => [board.id, board]));
   const profileMap = Object.fromEntries(allProfiles.map(profile => [profile.id, profile]));
-  const selectedReport = myHistory.find(report => report.id === selectedReportId);
+  const myHistory = historyPage.reports;
+  const totalPages = getTotalPages(historyPage.total, HISTORY_PAGE_SIZE);
+  const normalizedPage = Math.min(page, totalPages);
+  const historyParams: Record<string, string | undefined> = {
+    ...(normalizedPage > 1 && { page: String(normalizedPage) }),
+  };
+  const selectedReport = selectedReportCandidate?.authorId === user.id ? selectedReportCandidate : undefined;
   const editableReport = isWriting && selectedReport && canReviseWorkReport(selectedReport) ? selectedReport : undefined;
   const isEditingReport = Boolean(editableReport);
+
+  if (page > totalPages && historyPage.total > 0) {
+    redirect(buildPaginationHref('/work-report', {}, { page: totalPages }));
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -190,7 +208,7 @@ export default async function WorkReportPage({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-[14px] font-bold text-[var(--foreground)]">내 보고 히스토리</h2>
-                <p className="mt-1 text-[12px] text-[var(--muted)]">최근 제출한 업무보고를 확인합니다.</p>
+                <p className="mt-1 text-[12px] text-[var(--muted)]">총 {historyPage.total}건 · {normalizedPage}/{totalPages} 페이지</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
@@ -215,7 +233,7 @@ export default async function WorkReportPage({
               </Link>
             )}
 
-            {myHistory.length === 0 ? (
+            {historyPage.total === 0 ? (
               <div className="rounded-lg border border-dashed px-4 py-10 text-center text-[13px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
                 아직 작성한 보고가 없습니다.
               </div>
@@ -226,6 +244,7 @@ export default async function WorkReportPage({
                     report={selectedReport}
                     departmentName={boardMap[selectedReport.boardId]?.name ?? selectedReport.boardId}
                     reviewerName={selectedReport.reviewerId ? profileMap[selectedReport.reviewerId]?.name : undefined}
+                    closeHref={buildPaginationHref('/work-report', historyParams, { report: undefined })}
                   />
                 ) : (
                   <div className="mb-4 rounded-lg border border-dashed px-4 py-6 text-center text-[13px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
@@ -240,12 +259,12 @@ export default async function WorkReportPage({
                     <span>상태</span>
                   </div>
                   <div className="divide-y" style={{ borderColor: 'var(--line)' }}>
-                    {myHistory.slice(0, 20).map(report => {
+                    {myHistory.map(report => {
                       const isSelected = selectedReport?.id === report.id;
                       return (
                         <Link
                           key={report.id}
-                          href={`/work-report?report=${report.id}`}
+                          href={buildPaginationHref('/work-report', historyParams, { report: report.id })}
                           aria-current={isSelected ? 'true' : undefined}
                           className="grid grid-cols-1 gap-2 px-3 py-3 text-[12px] transition-colors hover:bg-[var(--stone-50)] sm:grid-cols-[1fr_110px_120px] sm:items-center"
                           style={{ background: isSelected ? 'var(--indigo-50)' : 'white' }}
@@ -263,6 +282,12 @@ export default async function WorkReportPage({
                     })}
                   </div>
                 </div>
+                <PaginationNav
+                  basePath="/work-report"
+                  page={normalizedPage}
+                  totalPages={totalPages}
+                  currentParams={historyParams}
+                />
               </>
             )}
           </section>
