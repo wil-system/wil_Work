@@ -45,12 +45,16 @@ export default function BoardSidebar({
   const router = useRouter();
   const [boardsOpen, setBoardsOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const { isOpen, close } = useSidebar();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
 
   async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
@@ -179,7 +183,8 @@ export default function BoardSidebar({
         <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} />
 
         <button
-          onClick={handleSignOut}
+          onClick={() => setShowSignOutConfirm(true)}
+          data-sidebar-signout-trigger
           className="mt-1 flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left"
           style={{ color: 'var(--stone-600)', transition: 'all 0.32s cubic-bezier(0.16,1,0.3,1)' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--stone-100)')}
@@ -194,6 +199,59 @@ export default function BoardSidebar({
         </button>
       </div>
     </aside>
+    {showSignOutConfirm && (
+      <div
+        className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+        role="presentation"
+        onClick={() => setShowSignOutConfirm(false)}
+      >
+        <div
+          data-sidebar-signout-dialog
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="signout-confirm-title"
+          className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+          onClick={event => event.stopPropagation()}
+        >
+          <div className="mb-4 flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              style={{ background: 'var(--stone-100)', color: 'var(--stone-600)' }}
+            >
+              <LogOut size={17} />
+            </div>
+            <div className="min-w-0">
+              <h2 id="signout-confirm-title" className="text-[15px] font-bold text-[var(--foreground)]">
+                로그아웃하시겠습니까?
+              </h2>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--muted)]">
+                현재 계정에서 로그아웃하고 로그인 화면으로 이동합니다.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSignOutConfirm(false)}
+              className="flex-1 rounded-lg border py-2.5 text-[13px] font-semibold transition-colors hover:bg-[var(--stone-50)]"
+              style={{ borderColor: 'var(--line)', color: 'var(--stone-700)' }}
+              disabled={signingOut}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ background: 'var(--indigo-600)' }}
+              disabled={signingOut}
+            >
+              {signingOut ? '로그아웃 중...' : '로그아웃'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

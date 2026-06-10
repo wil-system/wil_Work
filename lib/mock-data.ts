@@ -210,6 +210,9 @@ export const mockCalendarEvents: CalendarEvent[] = [
   { id: 'e4', title: '근로자의 날', date: '2026-05-01', allDay: true, type: 'holiday', attendees: [], description: '공휴일' },
   { id: 'e5', title: '마케팅 캠페인 마감', date: '2026-04-30', allDay: false, type: 'deadline', attendees: ['u4'], description: '5월 캠페인 소재 최종 제출' },
   { id: 'e6', title: '사내 워크샵', date: '2026-05-16', allDay: false, type: 'meeting', attendees: ['u1','u2','u3','u4'], description: '전 직원 필수 참석' },
+  { id: 't1', title: '제안서 최종 검토', date: '2026-05-02', allDay: true, type: 'todo', attendees: [], description: '영업팀 공유 전 문구 확인', completed: false },
+  { id: 't2', title: '워크샵 참석자 명단 확인', date: '2026-05-16', allDay: true, type: 'todo', attendees: [], description: '불참자와 대체 일정 확인', completed: false },
+  { id: 't3', title: '캠페인 결과 공유', date: '2026-05-18', allDay: true, type: 'todo', attendees: [], description: '성과 요약을 피드에 게시', completed: true },
 ];
 
 export const mockMemos: Memo[] = [
@@ -245,4 +248,270 @@ export function getAccessibleBoards(userId: string): Board[] {
 
 export function getPendingUsers(): Profile[] {
   return mockProfiles.filter(p => p.status === 'pending');
+}
+
+const heavyVolumeValues = new Set(['heavy', 'large', 'true']);
+
+export function isHighVolumeDemoDataMode(value = process.env.NEXT_PUBLIC_DEMO_DATA_VOLUME ?? process.env.NEXT_PUBLIC_TEST_DATA_VOLUME): boolean {
+  return heavyVolumeValues.has((value ?? '').toLowerCase());
+}
+
+export interface HighVolumeMockData {
+  profiles: Profile[];
+  boardPermissions: BoardPermission[];
+  posts: Post[];
+  workReports: WorkReport[];
+  calendarEvents: CalendarEvent[];
+  memos: Memo[];
+  notifications: Notification[];
+}
+
+const heavyBoardIds = ['feed', 'sales', 'dev', 'marketing', 'notice'] as const;
+const heavyTeamBoards = ['sales', 'dev', 'marketing', 'notice'] as const;
+const heavyProfilePalette = ['#2563eb', '#0f766e', '#b45309', '#7c3aed', '#be185d', '#0369a1'];
+const heavyDepartments = ['Sales', 'Development', 'Marketing', 'Design', 'Operations', 'Support'];
+const heavyTodoColors: NonNullable<CalendarEvent['todoColor']>[] = ['lemon', 'mint', 'sky', 'peach', 'lavender'];
+
+function juneDate(day: number): string {
+  return `2026-06-${String(day).padStart(2, '0')}`;
+}
+
+function juneDateTime(day: number, hour: number, minute = 0): string {
+  return `${juneDate(day)}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+}
+
+function rotate<T>(items: readonly T[], index: number): T {
+  return items[index % items.length];
+}
+
+export function buildHighVolumeMockData(): HighVolumeMockData {
+  const profiles: Profile[] = Array.from({ length: 42 }, (_, index) => {
+    const number = index + 1;
+    const isPending = number % 7 === 0 || number > 36;
+    return {
+      id: `hv-user-${number}`,
+      name: `Demo User ${number}`,
+      email: `demo.user.${number}@wil.test`,
+      role: number % 18 === 0 ? 'admin' : 'member',
+      status: isPending ? 'pending' : 'approved',
+      department: rotate(heavyDepartments, index),
+      position: number % 5 === 0 ? 'Lead' : 'Member',
+      avatarInitial: `D${number}`,
+      avatarColor: rotate(heavyProfilePalette, index),
+      joinedAt: juneDate(Math.min(28, number)),
+    };
+  });
+
+  const approvedProfileIds = profiles
+    .filter(profile => profile.status === 'approved')
+    .map(profile => profile.id);
+  const authorIds = ['u1', 'u2', 'u3', 'u4', ...approvedProfileIds.slice(0, 16)];
+
+  const boardPermissions: BoardPermission[] = approvedProfileIds.flatMap((profileId, index) =>
+    heavyTeamBoards
+      .filter((_, boardIndex) => (index + boardIndex) % 2 === 0)
+      .map((boardId, boardIndex) => ({
+        profileId,
+        boardId,
+        role: (index + boardIndex) % 9 === 0 ? 'leader' : 'member',
+      })),
+  );
+
+  const posts: Post[] = Array.from({ length: 96 }, (_, index) => {
+    const boardId = rotate(heavyBoardIds, index);
+    const day = 10 - (index % 10);
+    const hour = 8 + (index % 10);
+    const commentCount = index % 5;
+    return {
+      id: `hv-post-${index + 1}`,
+      boardId,
+      authorId: rotate(authorIds, index),
+      title: `High volume post ${index + 1}`,
+      content: [
+        `Load test post ${index + 1} for ${boardId}.`,
+        'This content is intentionally long enough to exercise wrapping, preview height, and dense feed scrolling.',
+        index % 3 === 0 ? 'Includes a task status so board task lanes have enough rows.' : 'General update item for feed density.',
+      ].join(' '),
+      attachments: index % 4 === 0
+        ? [{ id: `hv-attachment-${index + 1}`, name: `demo-attachment-${index + 1}.pdf`, size: `${120 + index} KB`, type: 'pdf' }]
+        : [],
+      comments: Array.from({ length: commentCount }, (_, commentIndex) => ({
+        id: `hv-comment-${index + 1}-${commentIndex + 1}`,
+        authorId: rotate(authorIds, index + commentIndex + 1),
+        content: `Dense comment ${commentIndex + 1} on post ${index + 1}.`,
+        createdAt: juneDateTime(day, Math.min(22, hour + 1), commentIndex * 10),
+      })),
+      isPinned: index % 17 === 0,
+      workStatus: boardId !== 'feed' && index % 3 === 0
+        ? rotate(['in_progress', 'completed', 'on_hold'] as const, index)
+        : undefined,
+      assigneeId: boardId !== 'feed' && index % 3 === 0 ? rotate(authorIds, index + 2) : undefined,
+      createdAt: juneDateTime(day, hour, (index * 7) % 60),
+    };
+  });
+
+  const workReports: WorkReport[] = Array.from({ length: 72 }, (_, index) => {
+    const day = 1 + (index % 10);
+    const authorId = rotate(authorIds, index);
+    const boardId = rotate(heavyTeamBoards, index);
+    const reviewStatus = rotate(['draft', 'submitted', 'reviewed', 'changes_requested'] as const, index);
+    return {
+      id: `hv-report-${index + 1}`,
+      authorId,
+      boardId,
+      date: juneDate(day),
+      periodStart: juneDate(Math.max(1, day - 2)),
+      periodEnd: juneDate(day),
+      periodLabel: `2026-06 dense period ${index + 1}`,
+      periodType: rotate(['day', 'week', 'month', 'custom'] as const, index),
+      goals: [`Goal ${index + 1}-1`, `Goal ${index + 1}-2`, `Goal ${index + 1}-3`],
+      progress: [`Progress ${index + 1}-1`, `Progress ${index + 1}-2`],
+      nextPlan: [`Next plan ${index + 1}-1`, `Next plan ${index + 1}-2`],
+      plannedTasks: [`Planned task ${index + 1}-1`, `Planned task ${index + 1}-2`],
+      completedTasks: [`Completed task ${index + 1}-1`, `Completed task ${index + 1}-2`],
+      issues: index % 4 === 0 ? `Issue note for dense report ${index + 1}.` : undefined,
+      status: reviewStatus === 'reviewed' ? 'reviewed' : reviewStatus === 'draft' ? 'draft' : 'submitted',
+      reviewStatus,
+      reviewerId: reviewStatus === 'reviewed' || reviewStatus === 'changes_requested' ? 'u1' : undefined,
+      reviewComment: reviewStatus === 'changes_requested' ? `Please revise dense report ${index + 1}.` : undefined,
+      reviewedAt: reviewStatus === 'reviewed' || reviewStatus === 'changes_requested' ? juneDateTime(day, 18) : undefined,
+      createdAt: juneDateTime(day, 9, index % 60),
+      updatedAt: juneDateTime(day, 17, index % 60),
+    };
+  });
+
+  const currentUserReports: WorkReport[] = Array.from({ length: 54 }, (_, index) => {
+    const day = 1 + (index % 30);
+    const boardId = rotate(heavyTeamBoards, index);
+    const reviewStatus = rotate(['submitted', 'reviewed', 'changes_requested', 'draft'] as const, index);
+    return {
+      id: `hv-my-report-${index + 1}`,
+      authorId: CURRENT_USER_ID,
+      boardId,
+      date: juneDate(day),
+      periodStart: juneDate(Math.max(1, day - (index % 5))),
+      periodEnd: juneDate(day),
+      periodLabel: `My dense report history ${index + 1}`,
+      periodType: rotate(['day', 'week', 'month', 'custom'] as const, index),
+      goals: [
+        `My history goal ${index + 1}-1`,
+        `My history goal ${index + 1}-2`,
+        `My history goal ${index + 1}-3`,
+      ],
+      progress: [
+        `My history progress ${index + 1}-1`,
+        `My history progress ${index + 1}-2`,
+      ],
+      nextPlan: [
+        `My history next plan ${index + 1}-1`,
+        `My history next plan ${index + 1}-2`,
+      ],
+      plannedTasks: [
+        `My history planned ${index + 1}-1`,
+        `My history planned ${index + 1}-2`,
+      ],
+      completedTasks: [
+        `My history completed ${index + 1}-1`,
+        `My history completed ${index + 1}-2`,
+      ],
+      issues: index % 4 === 0 ? `My history issue ${index + 1}.` : undefined,
+      status: reviewStatus === 'reviewed' ? 'reviewed' : reviewStatus === 'draft' ? 'draft' : 'submitted',
+      reviewStatus,
+      reviewerId: reviewStatus === 'reviewed' || reviewStatus === 'changes_requested' ? 'u2' : undefined,
+      reviewComment: reviewStatus === 'changes_requested' ? `Revise my history report ${index + 1}.` : undefined,
+      reviewedAt: reviewStatus === 'reviewed' || reviewStatus === 'changes_requested' ? juneDateTime(day, 18, index % 60) : undefined,
+      createdAt: juneDateTime(day, 10 + (index % 8), index % 60),
+      updatedAt: juneDateTime(day, 19, index % 60),
+    };
+  });
+
+  const calendarEvents: CalendarEvent[] = [
+    ...Array.from({ length: 14 }, (_, index) => ({
+      id: `hv-today-event-${index + 1}`,
+      title: `Today schedule ${index + 1}`,
+      date: '2026-06-10',
+      allDay: index % 5 === 0,
+      type: rotate(['meeting', 'deadline', 'personal'] as const, index),
+      attendees: authorIds.slice(0, 1 + (index % 4)),
+      description: `Dense schedule item ${index + 1} for today.`,
+    })),
+    ...Array.from({ length: 18 }, (_, index) => ({
+      id: `hv-today-todo-${index + 1}`,
+      title: `Today todo ${index + 1}`,
+      date: '2026-06-10',
+      allDay: true,
+      type: 'todo' as const,
+      attendees: [],
+      description: `Dense todo item ${index + 1} for today.`,
+      completed: index % 4 === 0,
+      todoColor: rotate(heavyTodoColors, index),
+    })),
+    ...Array.from({ length: 80 }, (_, index) => {
+      const day = 1 + (index % 30);
+      const isTodo = index % 2 === 0;
+      return {
+        id: `hv-month-${isTodo ? 'todo' : 'event'}-${index + 1}`,
+        title: isTodo ? `Month todo ${index + 1}` : `Month schedule ${index + 1}`,
+        date: juneDate(day),
+        allDay: isTodo || index % 6 === 0,
+        type: isTodo ? 'todo' as const : rotate(['meeting', 'deadline', 'holiday', 'personal'] as const, index),
+        attendees: isTodo ? [] : authorIds.slice(0, 1 + (index % 3)),
+        description: isTodo ? `Monthly dense todo ${index + 1}.` : `Monthly dense schedule ${index + 1}.`,
+        completed: isTodo ? index % 5 === 0 : undefined,
+        todoColor: isTodo ? rotate(heavyTodoColors, index) : undefined,
+      };
+    }),
+  ];
+
+  const memos: Memo[] = Array.from({ length: 48 }, (_, index) => ({
+    id: `hv-memo-${index + 1}`,
+    authorId: CURRENT_USER_ID,
+    title: `Dense memo ${index + 1}`,
+    content: [
+      `Memo body ${index + 1}.`,
+      'The text is long enough to check list wrapping, card height, and scroll behavior in memo pages.',
+      `Checklist: item A, item B, item C, follow up ${index + 1}.`,
+    ].join('\n'),
+    tags: [`tag-${(index % 6) + 1}`, rotate(['sales', 'dev', 'marketing', 'ops'] as const, index)],
+    isPinned: index % 11 === 0,
+    updatedAt: juneDateTime(10 - (index % 10), 10 + (index % 8), index % 60),
+  }));
+
+  const notifications: Notification[] = Array.from({ length: 64 }, (_, index) => {
+    const type = rotate(['comment', 'mention', 'approval', 'board', 'report'] as const, index);
+    return {
+      id: `hv-notification-${index + 1}`,
+      type,
+      title: `Dense ${type} notification ${index + 1}`,
+      body: `Notification body ${index + 1} with enough text to verify dense notification list spacing and wrapping.`,
+      isRead: index % 3 === 0,
+      createdAt: juneDateTime(10 - (index % 10), 9 + (index % 9), index % 60),
+      link: type === 'approval'
+        ? '/admin/approvals'
+        : type === 'report'
+          ? '/work-report/review'
+          : '/feed',
+    };
+  });
+
+  return {
+    profiles,
+    boardPermissions,
+    posts,
+    workReports: [...currentUserReports, ...workReports],
+    calendarEvents,
+    memos,
+    notifications,
+  };
+}
+
+if (isHighVolumeDemoDataMode()) {
+  const highVolume = buildHighVolumeMockData();
+  mockProfiles.push(...highVolume.profiles);
+  mockBoardPermissions.push(...highVolume.boardPermissions);
+  mockPosts.push(...highVolume.posts);
+  mockWorkReports.push(...highVolume.workReports);
+  mockCalendarEvents.push(...highVolume.calendarEvents);
+  mockMemos.push(...highVolume.memos);
+  mockNotifications.push(...highVolume.notifications);
 }

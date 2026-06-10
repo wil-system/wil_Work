@@ -4,6 +4,7 @@ export type UserStatus = 'pending' | 'approved' | 'rejected';
 export type WorkStatus = 'in_progress' | 'completed' | 'on_hold';
 export type ReportPeriodType = 'day' | 'week' | 'month' | 'custom';
 export type ReportReviewStatus = 'draft' | 'submitted' | 'reviewed' | 'changes_requested';
+export type TodoColor = 'lemon' | 'mint' | 'sky' | 'peach' | 'lavender';
 
 export interface Profile {
   id: string;
@@ -93,9 +94,11 @@ export interface CalendarEvent {
   date: string;
   endDate?: string;
   allDay: boolean;
-  type: 'meeting' | 'deadline' | 'holiday' | 'personal';
+  type: 'meeting' | 'deadline' | 'holiday' | 'personal' | 'todo';
   attendees: string[];
   description?: string;
+  completed?: boolean;
+  todoColor?: TodoColor;
 }
 
 export interface Memo {

@@ -1,24 +1,94 @@
 'use client';
-import { useState, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, AlertCircle } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  AlertCircle,
+  CalendarDays,
+  CheckSquare2,
+  ChevronLeft,
+  ChevronRight,
+  ListTodo,
+  Plus,
+  Square,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
-import { createEvent } from '@/app/(workspace)/calendar/actions';
-import type { CalendarEvent } from '@/lib/types';
+import { createEvent, updateTodoCompletion } from '@/app/(workspace)/calendar/actions';
+import {
+  TODO_COLORS,
+  buildTaskWeekRows,
+  calendarEventFromRow,
+  getCalendarItemsForDate,
+  getCalendarWeekIndexForDate,
+  getMobileCalendarSectionKeys,
+  getMonthDateRange,
+  splitCalendarItems,
+  toDateKey,
+} from '@/lib/calendar-items';
+import type { CalendarEvent, TodoColor } from '@/lib/types';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
-const TYPE_VARIANT: Record<string, 'indigo' | 'green' | 'yellow' | 'red'> = {
-  meeting: 'indigo', deadline: 'red', holiday: 'yellow', personal: 'green',
+const TYPE_VARIANT: Record<CalendarEvent['type'], 'indigo' | 'green' | 'yellow' | 'red' | 'gray'> = {
+  meeting: 'indigo',
+  deadline: 'red',
+  holiday: 'yellow',
+  personal: 'green',
+  todo: 'gray',
 };
-const TYPE_LABEL: Record<string, string> = {
-  meeting: '미팅', deadline: '마감', holiday: '휴일', personal: '개인',
+const TYPE_LABEL: Record<CalendarEvent['type'], string> = {
+  meeting: '미팅',
+  deadline: '마감',
+  holiday: '휴일',
+  personal: '개인',
+  todo: '할일',
 };
-const TYPE_BG: Record<string, string> = {
+const TYPE_BG: Record<CalendarEvent['type'], string> = {
   meeting: 'bg-[var(--indigo-50)] text-[var(--indigo-700)]',
   deadline: 'bg-[#fee2e2] text-[#991b1b]',
   holiday: 'bg-[#fef9c3] text-[#92400e]',
   personal: 'bg-[#d1fae5] text-[#065f46]',
+  todo: 'bg-[var(--stone-100)] text-[var(--stone-700)]',
 };
+const TODO_COLOR_STYLE: Record<TodoColor, {
+  label: string;
+  background: string;
+  border: string;
+  accent: string;
+}> = {
+  lemon: {
+    label: '레몬',
+    background: '#fef9c3',
+    border: '#fde68a',
+    accent: '#d97706',
+  },
+  mint: {
+    label: '민트',
+    background: '#d1fae5',
+    border: '#86efac',
+    accent: '#059669',
+  },
+  sky: {
+    label: '하늘',
+    background: '#dbeafe',
+    border: '#93c5fd',
+    accent: '#2563eb',
+  },
+  peach: {
+    label: '피치',
+    background: '#ffedd5',
+    border: '#fdba74',
+    accent: '#ea580c',
+  },
+  lavender: {
+    label: '라벤더',
+    background: '#ede9fe',
+    border: '#c4b5fd',
+    accent: '#7c3aed',
+  },
+};
+
+type FormMode = 'event' | 'todo';
+type MobileTab = 'calendar' | 'todo';
 
 function buildCalendar(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -29,10 +99,214 @@ function buildCalendar(year: number, month: number) {
   return cells;
 }
 
+function getInitialTaskDate(year: number, month: number) {
+  const today = new Date();
+  if (today.getFullYear() === year && today.getMonth() === month) {
+    return toDateKey(today);
+  }
+  return toDateKey(new Date(year, month, 1));
+}
+
+function formatLongDate(date: string) {
+  const [, month, day] = date.split('-');
+  const dayIndex = new Date(`${date}T00:00:00`).getDay();
+  return `${Number(month)}월 ${Number(day)}일 ${DAYS[dayIndex]}요일`;
+}
+
 interface CalendarClientProps {
   initialYear: number;
   initialMonth: number;
   initialEvents: CalendarEvent[];
+}
+
+interface TaskPanelProps {
+  todos: CalendarEvent[];
+  year: number;
+  month: number;
+  selectedDate: string;
+  pendingTodoId: string;
+  onSelectDate: (date: string) => void;
+  onAddTodo: (date: string) => void;
+  onToggleTodo: (todo: CalendarEvent) => void;
+  mode?: 'date' | 'list';
+  emptyMessage?: string;
+  className?: string;
+  isActive?: boolean;
+}
+
+function TaskPanel({
+  todos,
+  year,
+  month,
+  selectedDate,
+  pendingTodoId,
+  onSelectDate,
+  onAddTodo,
+  onToggleTodo,
+  mode = 'date',
+  emptyMessage,
+  className = 'card p-4',
+  isActive = true,
+}: TaskPanelProps) {
+  const weekRows = useMemo(() => buildTaskWeekRows(year, month), [year, month]);
+  const weekScrollerRef = useRef<HTMLDivElement>(null);
+  const isListMode = mode === 'list';
+  const selectedWeekIndex = useMemo(
+    () => getCalendarWeekIndexForDate(weekRows, selectedDate),
+    [selectedDate, weekRows],
+  );
+  const visibleTodos = isListMode ? todos : getCalendarItemsForDate(todos, selectedDate);
+  const counts = useMemo(() => {
+    return todos.reduce<Record<string, number>>((acc, todo) => {
+      acc[todo.date] = (acc[todo.date] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [todos]);
+
+  useEffect(() => {
+    if (isListMode || !isActive) return;
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = weekScrollerRef.current;
+      if (!scroller) return;
+      scroller.scrollTo({
+        left: scroller.clientWidth * selectedWeekIndex,
+        behavior: 'auto',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isActive, isListMode, selectedWeekIndex]);
+
+  return (
+    <section className={className}>
+      {!isListMode && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ListTodo size={15} className="text-[var(--indigo-600)]" />
+            <h3 className="text-[13px] font-bold text-[var(--foreground)]">할일</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => onAddTodo(selectedDate)}
+            className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold text-[var(--indigo-700)] hover:bg-[var(--indigo-50)]"
+            style={{ borderColor: 'var(--indigo-200)' }}
+          >
+            <Plus size={13} /> 할일 추가
+          </button>
+        </div>
+      )}
+
+      {!isListMode && (
+        <div ref={weekScrollerRef} className="overflow-x-auto snap-x snap-mandatory pb-2">
+          <div className="flex gap-3">
+            {weekRows.map((week, weekIndex) => (
+              <div key={weekIndex} className="grid min-w-full snap-start grid-cols-7 gap-1">
+                {week.map(day => {
+                  const isSelected = day.date === selectedDate;
+                  const count = counts[day.date] ?? 0;
+                  return (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => onSelectDate(day.date)}
+                      className="min-h-[58px] rounded-lg border px-1 py-2 text-center transition-colors"
+                      style={{
+                        borderColor: isSelected ? 'var(--indigo-500)' : 'var(--line)',
+                        background: isSelected ? 'var(--indigo-50)' : 'white',
+                        color: day.inMonth ? 'var(--foreground)' : 'var(--stone-400)',
+                      }}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="block text-[10px] font-semibold text-[var(--stone-500)]">
+                        {DAYS[new Date(`${day.date}T00:00:00`).getDay()]}
+                      </span>
+                      <span className="block text-[14px] font-bold leading-tight">{day.day}</span>
+                      <span
+                        className="mx-auto mt-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                        style={{
+                          background: count > 0 ? 'var(--indigo-600)' : 'var(--stone-100)',
+                          color: count > 0 ? 'white' : 'var(--stone-400)',
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className={isListMode ? '' : 'mt-3 rounded-lg border bg-[var(--stone-50)] p-3'} style={isListMode ? undefined : { borderColor: 'var(--line)' }}>
+        {!isListMode && (
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-[12px] font-bold text-[var(--foreground)]">{formatLongDate(selectedDate)}</h4>
+            <span className="text-[11px] font-semibold text-[var(--muted)]">{visibleTodos.length}개</span>
+          </div>
+        )}
+        {visibleTodos.length === 0 ? (
+          <div className="rounded-lg border border-dashed bg-white px-3 py-6 text-center text-[12px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
+            {emptyMessage ?? '선택한 날짜의 할일이 없습니다.'}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visibleTodos.map(todo => {
+              const completed = Boolean(todo.completed);
+              const colorStyle = TODO_COLOR_STYLE[todo.todoColor ?? 'lemon'];
+              const Icon = completed ? CheckSquare2 : Square;
+              return (
+                <div
+                  key={todo.id}
+                  className="rounded-lg border px-3 py-2.5"
+                  style={{
+                    background: colorStyle.background,
+                    borderColor: completed ? 'rgba(16,185,129,0.38)' : colorStyle.border,
+                    borderLeftWidth: 4,
+                    borderLeftColor: completed ? 'var(--success)' : colorStyle.accent,
+                    opacity: pendingTodoId === todo.id ? 0.68 : 1,
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onToggleTodo(todo)}
+                      disabled={pendingTodoId === todo.id}
+                      className="mt-0.5 rounded p-0.5 text-[var(--stone-600)] hover:bg-white/55 disabled:opacity-60"
+                      aria-label={completed ? `${todo.title} 미완료로 변경` : `${todo.title} 완료로 변경`}
+                    >
+                      <Icon
+                        size={16}
+                        className={completed ? 'text-[var(--success)]' : 'text-[var(--stone-500)]'}
+                      />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[12px] font-semibold leading-snug ${completed ? 'text-[var(--stone-400)] line-through' : 'text-[var(--foreground)]'}`}>
+                        {todo.title}
+                      </div>
+                      {todo.description && (
+                        <p className={`mt-1 text-[11px] leading-snug ${completed ? 'text-[var(--stone-400)] line-through' : 'text-[var(--stone-600)]'}`}>
+                          {todo.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {isListMode && (
+                        <span className="text-[10px] font-semibold text-[var(--muted)]">
+                          {todo.date.replace(/-/g, '.')}
+                        </span>
+                      )}
+                      {completed && <Badge variant="green">완료</Badge>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default function CalendarClient({ initialYear, initialMonth, initialEvents }: CalendarClientProps) {
@@ -41,16 +315,17 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [formMode, setFormMode] = useState<FormMode>('event');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => getInitialTaskDate(initialYear, initialMonth));
+  const [mobileTab, setMobileTab] = useState<MobileTab>('calendar');
+  const [pendingTodoId, setPendingTodoId] = useState('');
 
   const fetchEvents = useCallback(async (y: number, m: number) => {
     setLoading(true);
     const supabase = createClient();
-    const from = `${y}-${String(m + 1).padStart(2, '0')}-01`;
-    const lastDay = new Date(y, m + 1, 0).getDate();
-    const to = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const { from, to } = getMonthDateRange(y, m);
     const { data, error: fetchError } = await supabase
       .from('work_calendar_events')
       .select('*')
@@ -58,41 +333,81 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
       .lte('date', to)
       .order('date');
     if (fetchError) {
+      console.error('calendar fetch failed', {
+        code: fetchError.code,
+        message: fetchError.message,
+        details: fetchError.details,
+        from,
+        to,
+      });
       setLoading(false);
       return;
     }
-    setEvents((data ?? []).map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      title: r.title as string,
-      date: r.date as string,
-      endDate: r.end_date as string | undefined,
-      allDay: r.all_day as boolean,
-      type: r.type as CalendarEvent['type'],
-      attendees: r.attendees as string[],
-      description: r.description as string | undefined,
-    })));
+    setEvents((data ?? []).map((r: Record<string, unknown>) => calendarEventFromRow(r)));
     setLoading(false);
   }, []);
+
+  function moveMonth(nextYear: number, nextMonth: number) {
+    const nextSelectedDate = toDateKey(new Date(nextYear, nextMonth, 1));
+    setMonth(nextMonth);
+    setYear(nextYear);
+    setSelectedDate(nextSelectedDate);
+    fetchEvents(nextYear, nextMonth);
+  }
 
   function prevMonth() {
     const newMonth = month === 0 ? 11 : month - 1;
     const newYear = month === 0 ? year - 1 : year;
-    setMonth(newMonth);
-    setYear(newYear);
-    fetchEvents(newYear, newMonth);
+    moveMonth(newYear, newMonth);
   }
 
   function nextMonth() {
     const newMonth = month === 11 ? 0 : month + 1;
     const newYear = month === 11 ? year + 1 : year;
-    setMonth(newMonth);
-    setYear(newYear);
-    fetchEvents(newYear, newMonth);
+    moveMonth(newYear, newMonth);
   }
 
-  function openFormForDate(dateStr: string) {
+  function selectCalendarDate(dateStr: string) {
     setSelectedDate(dateStr);
+  }
+
+  function selectMobileTab(tab: MobileTab) {
+    if (tab === 'todo') {
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth();
+      setSelectedDate(toDateKey(today));
+      if (todayYear !== year || todayMonth !== month) {
+        setYear(todayYear);
+        setMonth(todayMonth);
+        fetchEvents(todayYear, todayMonth);
+      }
+    }
+    setMobileTab(tab);
+  }
+
+  function openFormForDate(dateStr = selectedDate, mode: FormMode = 'event') {
+    const nextDate = dateStr || selectedDate;
+    setSelectedDate(nextDate);
+    setFormMode(mode);
     setShowForm(true);
+    setError('');
+  }
+
+  function openTodoForm(dateStr = selectedDate) {
+    openFormForDate(dateStr, 'todo');
+  }
+
+  async function handleToggleTodo(todo: CalendarEvent) {
+    if (pendingTodoId) return;
+    setPendingTodoId(todo.id);
+    const result = await updateTodoCompletion(todo.id, !todo.completed);
+    if (result.success) {
+      await fetchEvents(year, month);
+    } else {
+      setError(result.error ?? '할일 상태 저장 중 오류가 발생했습니다.');
+    }
+    setPendingTodoId('');
   }
 
   async function handleCreateEvent(e: React.FormEvent<HTMLFormElement>) {
@@ -100,11 +415,18 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
     setSubmitting(true);
     setError('');
     const formData = new FormData(e.currentTarget);
+    const createdDate = (formData.get('date') as string ?? '').trim();
+    const createdType = formData.get('type');
     const result = await createEvent(formData);
     setSubmitting(false);
     if (result.success) {
       setShowForm(false);
-      setSelectedDate('');
+      if (createdType === 'todo' && createdDate) {
+        setSelectedDate(createdDate);
+        setMobileTab('todo');
+      } else if (createdDate) {
+        setSelectedDate(createdDate);
+      }
       await fetchEvents(year, month);
     } else {
       setError(result.error ?? '오류가 발생했습니다.');
@@ -112,229 +434,442 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
   }
 
   const cells = buildCalendar(year, month);
-  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  const { events: scheduleEvents, todos } = useMemo(() => splitCalendarItems(events), [events]);
+  const sortedEvents = [...scheduleEvents].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedTodos = [...todos].sort((a, b) => {
+    const byDate = a.date.localeCompare(b.date);
+    if (byDate !== 0) return byDate;
+    return a.title.localeCompare(b.title);
+  });
+  const selectedDayEvents = getCalendarItemsForDate(sortedEvents, selectedDate);
+  const selectedDayTodos = getCalendarItemsForDate(sortedTodos, selectedDate);
+  const visibleListEvents = selectedDayEvents;
+  const visibleListTodos = selectedDayTodos;
+  const mobileCalendarSections = getMobileCalendarSectionKeys();
+  const listDateLabel = formatLongDate(selectedDate);
   const todayDate = new Date();
   const today =
     todayDate.getFullYear() === year && todayDate.getMonth() === month
       ? todayDate.getDate()
       : -1;
+  const isTodoForm = formMode === 'todo';
+  const formDateValue = selectedDate;
 
   return (
     <>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Calendar grid */}
-        <div className="xl:col-span-2 card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={prevMonth}
-                className="p-1 rounded hover:bg-[var(--stone-100)] transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <h2 className="text-[15px] font-bold text-[var(--foreground)]">
-                {year}년 {month + 1}월
-              </h2>
-              <button
-                onClick={nextMonth}
-                className="p-1 rounded hover:bg-[var(--stone-100)] transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-              {loading && (
-                <span className="text-[11px] text-[var(--muted)]">로딩 중...</span>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                setSelectedDate('');
-                setShowForm(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white"
-              style={{ background: 'var(--indigo-600)' }}
-            >
-              <Plus size={13} /> 일정 추가
-            </button>
-          </div>
+      <div className="mb-3 grid grid-cols-2 rounded-lg border bg-white p-1 md:hidden" style={{ borderColor: 'var(--line)' }}>
+        {([
+          ['calendar', '일정', CalendarDays],
+          ['todo', '할일', ListTodo],
+        ] as Array<[MobileTab, string, React.ElementType]>).map(([tab, label, Icon]) => (
+          <button
+            key={tab}
+            type="button"
+            data-calendar-mobile-tab={tab}
+            onClick={() => selectMobileTab(tab)}
+            className="flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-semibold"
+            style={{
+              background: mobileTab === tab ? 'var(--indigo-600)' : 'transparent',
+              color: mobileTab === tab ? 'white' : 'var(--stone-600)',
+            }}
+            aria-pressed={mobileTab === tab}
+          >
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+      </div>
 
-          <div className="grid grid-cols-7 mb-2">
-            {DAYS.map(d => (
-              <div
-                key={d}
-                className="text-center text-[11px] font-semibold text-[var(--muted)] py-1"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-px bg-[var(--line)]">
-            {cells.map((day, i) => {
-              const dateStr = day
-                ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                : '';
-              const dayEvents = events.filter(e => e.date === dateStr);
-              const isToday = day === today;
-              return (
-                <div
-                  key={i}
-                  onClick={() => day && openFormForDate(dateStr)}
-                  className={`bg-white min-h-[56px] sm:min-h-[80px] p-1.5 ${
-                    day ? 'cursor-pointer hover:bg-[var(--stone-50)]' : 'opacity-30'
-                  }`}
+      <div className={`${mobileTab === 'calendar' ? 'block' : 'hidden'} md:block`}>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <div className="card p-5 xl:col-span-2">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={prevMonth}
+                  className="rounded p-1 hover:bg-[var(--stone-100)] transition-colors"
+                  aria-label="이전 달"
                 >
-                  {day && (
-                    <>
-                      <div
-                        className={`w-6 h-6 flex items-center justify-center rounded-full text-[12px] font-semibold mb-1 ${
-                          isToday
-                            ? 'bg-[var(--indigo-600)] text-white'
-                            : 'text-[var(--stone-700)]'
-                        }`}
-                      >
-                        {day}
-                      </div>
-                      {dayEvents.slice(0, 2).map(e => (
-                        <div
-                          key={e.id}
-                          className={`text-[9px] font-medium px-1 py-0.5 rounded mb-0.5 truncate ${TYPE_BG[e.type]}`}
-                        >
-                          {e.title}
-                        </div>
-                      ))}
-                      {dayEvents.length > 2 && (
-                        <div className="text-[9px] text-[var(--muted)]">
-                          +{dayEvents.length - 2}개
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Upcoming events sidebar */}
-        <div className="space-y-3">
-          <h3 className="text-[13px] font-bold text-[var(--foreground)]">다가오는 일정</h3>
-          {sorted.length === 0 ? (
-            <div className="card p-8 text-center text-[var(--muted)] text-[12px]">
-              이번 달 일정이 없습니다.
-            </div>
-          ) : (
-            sorted.map(event => (
-              <div key={event.id} className="card p-4">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="text-[13px] font-semibold text-[var(--foreground)]">
-                    {event.title}
-                  </span>
-                  <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
-                </div>
-                <div className="text-[11px] text-[var(--muted)]">
-                  {event.date.replace(/-/g, '.')}
-                </div>
-                {event.description && (
-                  <div className="text-[11px] text-[var(--stone-600)] mt-1">
-                    {event.description}
-                  </div>
+                  <ChevronLeft size={16} />
+                </button>
+                <h2 className="text-[15px] font-bold text-[var(--foreground)]">
+                  {year}년 {month + 1}월
+                </h2>
+                <button
+                  type="button"
+                  onClick={nextMonth}
+                  className="rounded p-1 hover:bg-[var(--stone-100)] transition-colors"
+                  aria-label="다음 달"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                {loading && (
+                  <span className="text-[11px] text-[var(--muted)]">로딩 중...</span>
                 )}
               </div>
-            ))
-          )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openTodoForm(selectedDate)}
+                  className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-semibold text-[var(--indigo-700)] hover:bg-[var(--indigo-50)]"
+                  style={{ borderColor: 'var(--indigo-200)' }}
+                >
+                  <Plus size={13} /> 할일 추가
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openFormForDate(selectedDate, 'event')}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-white"
+                  style={{ background: 'var(--indigo-600)' }}
+                >
+                  <Plus size={13} /> 일정 추가
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-2 grid grid-cols-7">
+              {DAYS.map(d => (
+                <div
+                  key={d}
+                  className="py-1 text-center text-[11px] font-semibold text-[var(--muted)]"
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-px bg-[var(--line)]">
+              {cells.map((day, i) => {
+                const dateStr = day
+                  ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                  : '';
+                const dayEvents = getCalendarItemsForDate(scheduleEvents, dateStr);
+                const dayTodos = getCalendarItemsForDate(todos, dateStr);
+                const isToday = day === today;
+                const isSelected = dateStr === selectedDate;
+                return (
+                  <div
+                    key={i}
+                    onClick={() => day && selectCalendarDate(dateStr)}
+                    className={`min-h-[56px] bg-white p-1.5 sm:min-h-[80px] ${
+                      day ? 'cursor-pointer hover:bg-[var(--stone-50)]' : 'opacity-30'
+                    } ${isSelected ? 'ring-2 ring-inset ring-[var(--indigo-500)]' : ''}`}
+                  >
+                    {day && (
+                      <>
+                        <div
+                          className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold ${
+                            isToday
+                              ? 'bg-[var(--indigo-600)] text-white'
+                              : 'text-[var(--stone-700)]'
+                          }`}
+                        >
+                          {day}
+                        </div>
+                        {dayEvents.slice(0, 2).map(event => (
+                          <div
+                            key={event.id}
+                            className={`mb-0.5 truncate rounded px-1 py-0.5 text-[9px] font-medium ${TYPE_BG[event.type]}`}
+                          >
+                            {event.title}
+                          </div>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <div className="text-[9px] text-[var(--muted)]">
+                            +{dayEvents.length - 2}개
+                          </div>
+                        )}
+                        {dayTodos.length > 0 && (
+                          <div className="mt-1 hidden h-[18px] items-center justify-between rounded bg-[var(--stone-100)] px-1.5 text-[9px] font-bold text-[var(--stone-600)] md:flex">
+                            <span>할일</span>
+                            <span>{dayTodos.length}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <section className="space-y-4 md:hidden">
+              {mobileCalendarSections.map(section => (
+                section === 'event' ? (
+                  <div key="event">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h3 className="text-[13px] font-bold text-[var(--foreground)]">
+                        {listDateLabel} 일정
+                      </h3>
+                      <span className="text-[11px] font-semibold text-[var(--muted)]">{visibleListEvents.length}개</span>
+                    </div>
+                    {visibleListEvents.length === 0 ? (
+                      <div className="card p-8 text-center text-[12px] text-[var(--muted)]">
+                        선택한 날짜의 일정이 없습니다.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {visibleListEvents.map(event => (
+                          <div key={event.id} className="card p-4">
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <span className="text-[13px] font-semibold text-[var(--foreground)]">
+                                {event.title}
+                              </span>
+                              <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                            </div>
+                            <div className="text-[11px] text-[var(--muted)]">
+                              {event.date.replace(/-/g, '.')}
+                            </div>
+                            {event.description && (
+                              <div className="mt-1 text-[11px] text-[var(--stone-600)]">
+                                {event.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div key="todo">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h3 className="text-[13px] font-bold text-[var(--foreground)]">
+                        {listDateLabel} 할일
+                      </h3>
+                      <span className="text-[11px] font-semibold text-[var(--muted)]">{visibleListTodos.length}개</span>
+                    </div>
+                    <TaskPanel
+                      todos={visibleListTodos}
+                      year={year}
+                      month={month}
+                      selectedDate={selectedDate}
+                      pendingTodoId={pendingTodoId}
+                      onSelectDate={selectCalendarDate}
+                      onAddTodo={openTodoForm}
+                      onToggleTodo={handleToggleTodo}
+                      mode="list"
+                      emptyMessage="선택한 날짜의 할일이 없습니다."
+                      className=""
+                    />
+                  </div>
+                )
+              ))}
+            </section>
+
+            <div className="hidden min-h-[520px] max-h-[calc(100vh-190px)] grid-rows-2 gap-3 md:grid">
+              <section className="card flex min-h-0 flex-col p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CalendarDays size={15} className="shrink-0 text-[var(--indigo-600)]" />
+                    <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
+                      {listDateLabel} 일정
+                    </h3>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListEvents.length}개</span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  {visibleListEvents.length === 0 ? (
+                    <div className="rounded-lg border border-dashed bg-white px-3 py-8 text-center text-[12px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
+                      선택한 날짜의 일정이 없습니다.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {visibleListEvents.map(event => (
+                        <div key={event.id} className="rounded-lg border bg-white px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
+                          <div className="mb-1 flex items-start justify-between gap-2">
+                            <span className="text-[13px] font-semibold text-[var(--foreground)]">
+                              {event.title}
+                            </span>
+                            <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                          </div>
+                          <div className="text-[11px] text-[var(--muted)]">
+                            {event.date.replace(/-/g, '.')}
+                          </div>
+                          {event.description && (
+                            <div className="mt-1 text-[11px] text-[var(--stone-600)]">
+                              {event.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="card flex min-h-0 flex-col p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ListTodo size={15} className="shrink-0 text-[var(--indigo-600)]" />
+                    <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
+                      {listDateLabel} 할일
+                    </h3>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListTodos.length}개</span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <TaskPanel
+                    todos={visibleListTodos}
+                    year={year}
+                    month={month}
+                    selectedDate={selectedDate}
+                    pendingTodoId={pendingTodoId}
+                    onSelectDate={selectCalendarDate}
+                    onAddTodo={openTodoForm}
+                    onToggleTodo={handleToggleTodo}
+                    mode="list"
+                    emptyMessage="선택한 날짜의 할일이 없습니다."
+                    className=""
+                  />
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Add event modal */}
+      <div className={`${mobileTab === 'todo' ? 'block' : 'hidden'} md:hidden`}>
+        <TaskPanel
+          todos={todos}
+          year={year}
+          month={month}
+          selectedDate={selectedDate}
+          pendingTodoId={pendingTodoId}
+          onSelectDate={selectCalendarDate}
+          onAddTodo={openTodoForm}
+          onToggleTodo={handleToggleTodo}
+          isActive={mobileTab === 'todo'}
+        />
+      </div>
+
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-[92vw] max-w-md bg-white rounded-2xl shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-[92vw] max-w-md rounded-2xl bg-white shadow-2xl">
             <div
-              className="flex items-center justify-between px-4 sm:px-6 py-4 border-b"
+              className="flex items-center justify-between border-b px-4 py-4 sm:px-6"
               style={{ borderColor: 'var(--line)' }}
             >
-              <h2 className="text-[15px] font-bold text-[var(--foreground)]">일정 추가</h2>
+              <h2 className="text-[15px] font-bold text-[var(--foreground)]">
+                {isTodoForm ? '할일 추가' : '일정 추가'}
+              </h2>
               <button
+                type="button"
                 onClick={() => {
                   setShowForm(false);
                   setError('');
                 }}
-                className="p-1.5 rounded-lg hover:bg-[var(--stone-100)]"
+                className="rounded-lg p-1.5 hover:bg-[var(--stone-100)]"
+                aria-label="닫기"
               >
                 <X size={16} className="text-[var(--muted)]" />
               </button>
             </div>
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
+            <form onSubmit={handleCreateEvent} className="space-y-4 p-6">
+              {isTodoForm && <input type="hidden" name="type" value="todo" />}
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--stone-600)] mb-1.5 uppercase tracking-wide">
-                  제목 *
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
+                  {isTodoForm ? '할일 *' : '제목 *'}
                 </label>
                 <input
                   type="text"
                   name="title"
                   required
-                  placeholder="일정 제목"
-                  className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
+                  placeholder={isTodoForm ? '할일을 입력하세요' : '일정 제목'}
+                  className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--stone-600)] mb-1.5 uppercase tracking-wide">
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
                   날짜 *
                 </label>
                 <input
                   type="date"
                   name="date"
                   required
-                  defaultValue={selectedDate}
-                  className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
+                  defaultValue={formDateValue}
+                  className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
                 />
               </div>
+              {isTodoForm && (
+                <div>
+                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
+                    색상
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {TODO_COLORS.map(color => {
+                      const style = TODO_COLOR_STYLE[color];
+                      return (
+                        <label
+                          key={color}
+                          className="h-7 w-7 cursor-pointer rounded-md border has-[:checked]:ring-2 has-[:checked]:ring-[var(--indigo-500)] has-[:checked]:ring-offset-2"
+                          style={{ borderColor: style.border, background: style.background }}
+                          aria-label={`${style.label} 색상`}
+                          title={`${style.label} 색상`}
+                        >
+                          <input
+                            type="radio"
+                            name="todoColor"
+                            value={color}
+                            defaultChecked={color === 'lemon'}
+                            className="sr-only"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {!isTodoForm && (
+                <>
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
+                      종류
+                    </label>
+                    <select
+                      name="type"
+                      defaultValue="meeting"
+                      className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)]"
+                      style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
+                    >
+                      <option value="meeting">미팅</option>
+                      <option value="deadline">마감</option>
+                      <option value="holiday">휴일</option>
+                      <option value="personal">개인</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      name="allDay"
+                      id="allDay"
+                      className="h-4 w-4 rounded accent-[var(--indigo-600)]"
+                    />
+                    <label
+                      htmlFor="allDay"
+                      className="cursor-pointer text-[13px] text-[var(--foreground)]"
+                    >
+                      하루 종일
+                    </label>
+                  </div>
+                </>
+              )}
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--stone-600)] mb-1.5 uppercase tracking-wide">
-                  종류
-                </label>
-                <select
-                  name="type"
-                  defaultValue="meeting"
-                  className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
-                  style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
-                >
-                  <option value="meeting">미팅</option>
-                  <option value="deadline">마감</option>
-                  <option value="holiday">휴일</option>
-                  <option value="personal">개인</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--stone-600)] mb-1.5 uppercase tracking-wide">
-                  설명
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
+                  {isTodoForm ? '메모' : '설명'}
                 </label>
                 <textarea
                   name="description"
                   rows={2}
-                  placeholder="일정 설명 (선택)"
+                  placeholder={isTodoForm ? '할일 메모 (선택)' : '일정 설명 (선택)'}
                   className="w-full resize-none rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="allDay"
-                  id="allDay"
-                  className="w-4 h-4 rounded accent-[var(--indigo-600)]"
-                />
-                <label
-                  htmlFor="allDay"
-                  className="text-[13px] text-[var(--foreground)] cursor-pointer"
-                >
-                  하루 종일
-                </label>
-              </div>
               {error && (
-                <div className="flex items-center gap-2 text-[12px] text-[var(--danger)] bg-[#fee2e2] px-3 py-2 rounded-lg">
+                <div className="flex items-center gap-2 rounded-lg bg-[#fee2e2] px-3 py-2 text-[12px] text-[var(--danger)]">
                   <AlertCircle size={13} /> {error}
                 </div>
               )}
@@ -345,7 +880,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                     setShowForm(false);
                     setError('');
                   }}
-                  className="flex-1 py-2.5 rounded-lg text-[13px] font-medium border hover:bg-[var(--stone-50)] transition-colors"
+                  className="flex-1 rounded-lg border py-2.5 text-[13px] font-medium hover:bg-[var(--stone-50)] transition-colors"
                   style={{ borderColor: 'var(--line)', color: 'var(--foreground)' }}
                 >
                   취소
@@ -353,7 +888,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
+                  className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
                   style={{ background: 'var(--indigo-600)' }}
                 >
                   {submitting ? '저장 중...' : '저장'}
