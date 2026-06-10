@@ -10,6 +10,7 @@ import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getMyReportHistoryPage, getReportById } from '@/lib/db/reports';
 import { getTotalPages, parsePageParam } from '@/lib/pagination';
 import { canReviseWorkReport, getReportRecipientProfiles } from '@/lib/report-review-permissions';
+import { getWorkReportBoards } from '@/lib/work-report-boards';
 import type { ReportReviewStatus, WorkReport } from '@/lib/types';
 import WorkReportForm from '@/components/work-report-form';
 
@@ -139,8 +140,7 @@ export default async function WorkReportPage({
   ]);
 
   const canReview = true;
-  const reportBoards = boards
-    .filter(board => board.id !== 'feed' && board.id !== 'notice');
+  const reportBoards = getWorkReportBoards(boards);
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles: allProfiles });
 
   const boardMap = Object.fromEntries(boards.map(board => [board.id, board]));
@@ -163,7 +163,7 @@ export default async function WorkReportPage({
     <div className="flex h-full flex-col overflow-hidden">
       <Topbar
         title={isEditingReport ? '업무보고 수정' : isWriting ? '업무보고 작성' : '내 보고 히스토리'}
-        subtitle={isEditingReport ? '수정요청 받은 업무보고를 보완해 다시 제출합니다' : isWriting ? '부서와 기간을 선택해 목표, 진행업무, 이슈사항, 다음계획을 제출합니다' : '제출한 업무보고를 누적 확인합니다'}
+        subtitle={isEditingReport ? '수정요청 받은 업무보고를 보완해 다시 제출합니다' : isWriting ? undefined : '제출한 업무보고를 누적 확인합니다'}
         breadcrumb={[{ label: '업무게시판', href: '/work-report' }, { label: isWriting ? '작성' : '히스토리' }]}
         currentUser={user}
         unreadCount={unreadCount}

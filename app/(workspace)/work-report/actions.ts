@@ -10,6 +10,7 @@ import {
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { canReviewWorkReport, canSubmitReviewDecision, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import { normalizeReportItems } from '@/lib/report-diff';
+import { getWorkReportBoards } from '@/lib/work-report-boards';
 import type { ReportPeriodType, ReportReviewStatus } from '@/lib/types';
 
 function isPeriodType(value: string): value is ReportPeriodType {
@@ -43,7 +44,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
     getAccessibleBoards(user.id),
     getAllProfiles(),
   ]);
-  const reportBoards = accessibleBoards.filter(board => board.id !== 'feed' && board.id !== 'notice');
+  const reportBoards = getWorkReportBoards(accessibleBoards);
   if (!reportBoards.some(board => board.id === boardId)) {
     return { success: false, error: '선택한 부서에 보고서를 작성할 권한이 없습니다.' };
   }
