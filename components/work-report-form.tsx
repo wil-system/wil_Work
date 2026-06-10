@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { submitReport } from '@/app/(workspace)/work-report/actions';
+import { UNASSIGNED_WORK_REPORT_BOARD_LABEL } from '@/lib/work-report-boards';
 import type { Board, Profile, WorkReport } from '@/lib/types';
 
 function formatLocalDate(date: Date) {
@@ -29,7 +30,7 @@ export default function WorkReportForm({
   const today = useMemo(() => formatLocalDate(new Date()), []);
   const isEditing = Boolean(report);
   const reportRecipientIsSelectable = Boolean(report?.recipientId && recipients.some(recipient => recipient.id === report.recipientId));
-  const [boardId, setBoardId] = useState(report?.boardId ?? boards[0]?.id ?? '');
+  const [boardId, setBoardId] = useState(report?.boardId ?? '');
   const [recipientId, setRecipientId] = useState(reportRecipientIsSelectable ? report!.recipientId! : recipients[0]?.id ?? '');
   const [periodStart, setPeriodStart] = useState(report?.periodStart ?? today);
   const [periodEnd, setPeriodEnd] = useState(report?.periodEnd ?? today);
@@ -62,7 +63,7 @@ export default function WorkReportForm({
       });
       if (!isEditing) {
         formRef.current?.reset();
-        setBoardId(boards[0]?.id ?? '');
+        setBoardId('');
         setRecipientId(recipients[0]?.id ?? '');
         setPeriodStart(today);
         setPeriodEnd(today);
@@ -72,12 +73,12 @@ export default function WorkReportForm({
     }
   }
 
-  if (boards.length === 0 || recipients.length === 0) {
+  if (recipients.length === 0) {
     return (
       <div className="card p-5">
         <h2 className="text-[14px] font-bold text-[var(--foreground)]">업무보고 작성</h2>
         <p className="mt-2 text-[12px] text-[var(--muted)]">
-          {boards.length === 0 ? '보고서를 작성할 수 있는 부서 권한이 없습니다.' : '선택할 수 있는 수신자가 없습니다.'}
+          선택할 수 있는 수신자가 없습니다.
         </p>
       </div>
     );
@@ -109,10 +110,10 @@ export default function WorkReportForm({
             value={boardId}
             onChange={event => setBoardId(event.target.value)}
             disabled={isEditing}
-            required
             className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] disabled:cursor-not-allowed disabled:text-[var(--stone-500)]"
             style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
           >
+            <option value="">{UNASSIGNED_WORK_REPORT_BOARD_LABEL}</option>
             {boards.map(board => (
               <option key={board.id} value={board.id}>{board.name}</option>
             ))}

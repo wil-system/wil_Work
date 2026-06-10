@@ -31,7 +31,7 @@ function toReport(row: Record<string, unknown>): WorkReport {
   return {
     id: row.id as string,
     authorId: row.author_id as string,
-    boardId: (row.board_id as string | undefined) ?? 'feed',
+    boardId: row.board_id as string | undefined,
     date,
     periodStart: (row.period_start as string | undefined) ?? date,
     periodEnd: (row.period_end as string | undefined) ?? date,
@@ -74,7 +74,7 @@ export interface ReportPage {
 
 export interface PeriodReportInput {
   authorId: string;
-  boardId: string;
+  boardId?: string;
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
@@ -96,7 +96,7 @@ export async function getReports(filters: ReportFilters = {}): Promise<WorkRepor
   if (isDemoMode()) {
     return demoReports
       .filter(report => !filters.boardId || report.boardId === filters.boardId)
-      .filter(report => !filters.boardIds || filters.boardIds.includes(report.boardId))
+      .filter(report => !filters.boardIds || (report.boardId ? filters.boardIds.includes(report.boardId) : false))
       .filter(report => !filters.authorId || report.authorId === filters.authorId)
       .filter(report => !filters.authorIds || filters.authorIds.includes(report.authorId))
       .filter(report => !filters.recipientId || report.recipientId === filters.recipientId)
@@ -227,7 +227,7 @@ async function getReportsByIds(reportIds: string[]): Promise<WorkReport[]> {
 
 export async function getPreviousReport(
   authorId: string,
-  boardId: string,
+  boardId: string | undefined,
   periodStart: string,
 ): Promise<WorkReport | null> {
   if (isDemoMode()) {
@@ -238,16 +238,18 @@ export async function getPreviousReport(
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('work_reports')
     .select('*')
     .eq('author_id', authorId)
-    .eq('board_id', boardId)
     .lt('period_start', periodStart)
     .order('period_start', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  query = boardId ? query.eq('board_id', boardId) : query.is('board_id', null);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
   return data ? toReport(data) : null;
@@ -319,7 +321,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
 
   const payload = {
     author_id: report.authorId,
-    board_id: report.boardId,
+    board_id: report.boardId ?? null,
     date: report.periodStart,
     period_start: report.periodStart,
     period_end: report.periodEnd,

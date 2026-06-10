@@ -22,6 +22,7 @@ export function getReportAuthorLevel(
   permissions: BoardPermission[],
 ): ReportActorLevel {
   if (author?.role === 'admin') return 'admin';
+  if (!report.boardId) return 'member';
   if (isBoardLeader(report.authorId, report.boardId, permissions)) return 'leader';
   return 'member';
 }

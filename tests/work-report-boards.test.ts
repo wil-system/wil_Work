@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getWorkReportBoards, isWorkReportBoard } from '../lib/work-report-boards.ts';
+import {
+  getWorkReportBoardLabel,
+  getWorkReportBoards,
+  UNASSIGNED_WORK_REPORT_BOARD_LABEL,
+  isWorkReportBoard,
+} from '../lib/work-report-boards.ts';
 import type { Board } from '../lib/types.ts';
 
 function board(id: string, name: string): Board {
@@ -28,4 +33,10 @@ test('excludes system and all-department boards from work report department choi
     ]).map(item => item.id),
     ['sales'],
   );
+});
+
+test('labels reports without a board as unassigned', () => {
+  assert.equal(getWorkReportBoardLabel(undefined), UNASSIGNED_WORK_REPORT_BOARD_LABEL);
+  assert.equal(getWorkReportBoardLabel(null), UNASSIGNED_WORK_REPORT_BOARD_LABEL);
+  assert.equal(getWorkReportBoardLabel('sales', board('sales', '영업팀')), '영업팀');
 });

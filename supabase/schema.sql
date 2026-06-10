@@ -72,7 +72,7 @@ create table if not exists work_comments (
 create table if not exists work_reports (
   id uuid primary key default gen_random_uuid(),
   author_id uuid references work_profiles(id) on delete cascade not null,
-  board_id text references work_boards(id) on delete cascade not null default 'feed',
+  board_id text references work_boards(id) on delete cascade,
   date date not null default current_date,
   period_start date not null default current_date,
   period_end date not null default current_date,
@@ -394,14 +394,14 @@ begin
     report.author_id,
     author.name,
     report.board_id,
-    board.name,
+    coalesce(board.name, '부서 미지정'),
     report.period_label,
     report.review_status,
     report.recipient_id
   into v_author_id, v_author_name, v_board_id, v_board_name, v_period_label, v_review_status, v_recipient_id
   from public.work_reports report
   join public.work_profiles author on author.id = report.author_id
-  join public.work_boards board on board.id = report.board_id
+  left join public.work_boards board on board.id = report.board_id
   where report.id = p_report_id;
 
   if v_author_id is null then
@@ -612,13 +612,18 @@ create policy "Users can insert own reports"
   with check (
     is_work_approved()
     and author_id = auth.uid()
-    and board_id not in ('feed', 'notice')
     and (
-      is_work_admin()
-      or (select is_public from work_boards where id = board_id) = true
-      or exists (
-        select 1 from work_board_permissions
-        where profile_id = auth.uid() and board_id = work_reports.board_id
+      board_id is null
+      or (
+        board_id <> 'notice'
+        and (
+          is_work_admin()
+          or (select is_public from work_boards where id = board_id) = true
+          or exists (
+            select 1 from work_board_permissions
+            where profile_id = auth.uid() and board_id = work_reports.board_id
+          )
+        )
       )
     )
     and (

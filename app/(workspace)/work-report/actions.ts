@@ -45,7 +45,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
     getAllProfiles(),
   ]);
   const reportBoards = getWorkReportBoards(accessibleBoards);
-  if (!reportBoards.some(board => board.id === boardId)) {
+  if (boardId && !reportBoards.some(board => board.id === boardId)) {
     return { success: false, error: '선택한 부서에 보고서를 작성할 권한이 없습니다.' };
   }
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles });
@@ -66,7 +66,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
     const savedReportId = await savePeriodReport({
       reportId: reportId || undefined,
       authorId: user.id,
-      boardId,
+      boardId: boardId || undefined,
       periodStart,
       periodEnd,
       periodLabel,

@@ -66,7 +66,7 @@ export interface FeedDateCount {
 export interface WorkReport {
   id: string;
   authorId: string;
-  boardId: string;
+  boardId?: string;
   date: string;
   periodStart: string;
   periodEnd: string;

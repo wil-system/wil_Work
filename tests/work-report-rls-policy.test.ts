@@ -7,7 +7,7 @@ function read(path: string) {
   return readFileSync(resolve(path), 'utf8');
 }
 
-function policy(sql: string, name: string, operation: 'select' | 'update') {
+function policy(sql: string, name: string, operation: 'select' | 'insert' | 'update') {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
     `create policy "${escapedName}"[\\s\\S]*?for ${operation}[\\s\\S]*?;`,
@@ -38,4 +38,19 @@ test('latest work report migration removes hierarchy reviewer report visibility'
   assert.equal(readPolicy.includes('is_work_report_reviewer'), false);
   assert.equal(updatePolicy.includes('is_work_report_reviewer'), false);
   assert.match(readPolicy, /recipient_id\s*=\s*auth\.uid\(\)/);
+});
+
+test('work report insert policy allows null-board reports while still blocking notices', () => {
+  const schemaPolicy = policy(
+    read('supabase/schema.sql'),
+    'Users can insert own reports',
+    'insert',
+  );
+  const migration = read('supabase/migrations/20260610191000_allow_null_board_work_reports.sql');
+  const migrationPolicy = policy(migration, 'Users can insert own reports', 'insert');
+
+  assert.match(schemaPolicy, /board_id\s+is\s+null/);
+  assert.match(schemaPolicy, /board_id\s+<>\s+'notice'/);
+  assert.equal(schemaPolicy.includes("board_id not in ('feed', 'notice')"), false);
+  assert.match(migrationPolicy, /board_id\s+is\s+null/);
 });
