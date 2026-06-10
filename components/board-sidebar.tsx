@@ -132,7 +132,7 @@ export default function BoardSidebar({
               </div>
               {canWriteWorkReport && (
                 <NavItem
-                  href="/work-report"
+                  href="/work-report?mode=write"
                   icon={FileText}
                   label="업무보고 작성"
                   active={pathname === '/work-report'}

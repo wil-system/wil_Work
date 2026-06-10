@@ -14,8 +14,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     getAccessibleBoards(user.id),
     getMyNotificationSettings(),
   ]);
-  const reportBoardCount = boards.filter(board => board.id !== 'feed' && board.id !== 'notice').length;
-  const canWriteWorkReport = reportBoardCount > 0;
+  const canWriteWorkReport = true;
   const canReviewWorkReport = true;
 
   return (
