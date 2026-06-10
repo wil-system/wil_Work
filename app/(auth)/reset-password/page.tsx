@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, KeyRound, ShieldCheck } from 'lucide-react';
+import { getPasswordResetUpdateErrorMessage } from '@/lib/password-reset-errors';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ResetPasswordPage() {
@@ -52,7 +53,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (updateError) {
-      setError('비밀번호 변경에 실패했습니다. 링크가 만료되었으면 다시 요청하세요.');
+      setError(getPasswordResetUpdateErrorMessage(updateError));
       return;
     }
 
