@@ -4,7 +4,7 @@ import { ClipboardCheck, History, PencilLine } from 'lucide-react';
 import PaginationNav, { buildPaginationHref } from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
-import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
+import { getAccessibleBoards } from '@/lib/db/boards';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getMyReportHistoryPage, getReportById } from '@/lib/db/reports';
@@ -130,21 +130,15 @@ export default async function WorkReportPage({
   const isWriting = one(params.mode) === 'write';
   const page = parsePageParam(one(params.page));
 
-  const [boards, permissions, unreadCount, historyPage, allProfiles, selectedReportCandidate] = await Promise.all([
+  const [boards, unreadCount, historyPage, allProfiles, selectedReportCandidate] = await Promise.all([
     getAccessibleBoards(user.id),
-    getAllBoardPermissions(),
     getUnreadNotificationCount(),
     getMyReportHistoryPage(user.id, { page, pageSize: HISTORY_PAGE_SIZE }),
     getAllProfiles(),
     selectedReportId ? getReportById(selectedReportId) : Promise.resolve(null),
   ]);
 
-  const leaderBoardIds = new Set(
-    permissions
-      .filter(permission => permission.profileId === user.id && permission.role === 'leader')
-      .map(permission => permission.boardId)
-  );
-  const canReview = user.role === 'admin' || leaderBoardIds.size > 0;
+  const canReview = true;
   const reportBoards = boards
     .filter(board => board.id !== 'feed' && board.id !== 'notice');
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles: allProfiles });

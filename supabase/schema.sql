@@ -603,7 +603,6 @@ create policy "Users can read accessible reports"
     and (
       author_id = auth.uid()
       or recipient_id = auth.uid()
-      or is_work_report_reviewer(board_id, author_id)
     )
   );
 
@@ -642,7 +641,6 @@ create policy "Users can update accessible reports"
     and (
       (author_id = auth.uid() and review_status in ('draft', 'submitted', 'changes_requested'))
       or recipient_id = auth.uid()
-      or is_work_report_reviewer(board_id, author_id)
     )
   )
   with check (
@@ -650,7 +648,6 @@ create policy "Users can update accessible reports"
     and (
       author_id = auth.uid()
       or recipient_id = auth.uid()
-      or is_work_report_reviewer(board_id, author_id)
     )
   );
 

@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
+import { getAccessibleBoards } from '@/lib/db/boards';
 import {
   createReportNotifications,
   getReportById,
@@ -8,7 +8,7 @@ import {
   savePeriodReport,
 } from '@/lib/db/reports';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
-import { canReviewWorkReport, canSubmitReviewDecision, getReportAuthorLevel, getReportRecipientProfiles } from '@/lib/report-review-permissions';
+import { canReviewWorkReport, canSubmitReviewDecision, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import { normalizeReportItems } from '@/lib/report-diff';
 import type { ReportPeriodType, ReportReviewStatus } from '@/lib/types';
 
@@ -114,19 +114,10 @@ export async function reviewReportAction(formData: FormData): Promise<{ success:
     }
     if (!report) return { success: false, error: '보고서를 찾을 수 없습니다.' };
 
-    const [profiles, permissions] = await Promise.all([
-      getAllProfiles(),
-      getAllBoardPermissions(),
-    ]);
-    const author = profiles.find(profile => profile.id === report.authorId);
-    const authorLevel = getReportAuthorLevel(report, author, permissions);
-
-    if (!canReviewWorkReport({ reviewer: user, report, author, permissions })) {
+    if (!canReviewWorkReport({ reviewer: user, report })) {
       return {
         success: false,
-        error: authorLevel === 'leader'
-          ? '팀장 업무보고는 관리자만 검토할 수 있습니다.'
-          : '검토 권한이 없습니다.',
+        error: '수신자로 지정된 사용자만 검토할 수 있습니다.',
       };
     }
 

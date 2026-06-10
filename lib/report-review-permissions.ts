@@ -29,20 +29,14 @@ export function getReportAuthorLevel(
 export function canReviewWorkReport({
   reviewer,
   report,
-  author,
-  permissions,
 }: {
-  reviewer: Pick<Profile, 'id' | 'role'>;
-  report: Pick<WorkReport, 'authorId' | 'boardId' | 'recipientId'>;
-  author: Pick<Profile, 'role'> | undefined;
-  permissions: BoardPermission[];
+  reviewer: Pick<Profile, 'id'>;
+  report: Pick<WorkReport, 'authorId' | 'recipientId'>;
+  author?: Pick<Profile, 'role'> | undefined;
+  permissions?: BoardPermission[];
 }) {
   if (reviewer.id === report.authorId) return false;
-  if (report.recipientId === reviewer.id) return true;
-  if (reviewer.role === 'admin') return true;
-
-  return isBoardLeader(reviewer.id, report.boardId, permissions) &&
-    getReportAuthorLevel(report, author, permissions) === 'member';
+  return report.recipientId === reviewer.id;
 }
 
 export function canSubmitReviewDecision(report: Pick<WorkReport, 'reviewStatus'>) {
@@ -51,25 +45,6 @@ export function canSubmitReviewDecision(report: Pick<WorkReport, 'reviewStatus'>
 
 export function canReviseWorkReport(report: Pick<WorkReport, 'reviewStatus'>) {
   return report.reviewStatus === 'changes_requested';
-}
-
-export function getReviewableAuthorProfiles({
-  reviewer,
-  boardIds,
-  profiles,
-  permissions,
-}: {
-  reviewer: Pick<Profile, 'id' | 'role'>;
-  boardIds: string[];
-  profiles: Profile[];
-  permissions: BoardPermission[];
-}) {
-  return profiles.filter(profile => {
-    if (profile.id === reviewer.id) return false;
-    if (reviewer.role === 'admin') return true;
-    if (profile.role === 'admin') return false;
-    return boardIds.some(boardId => !isBoardLeader(profile.id, boardId, permissions));
-  });
 }
 
 export function getReportRecipientProfiles({

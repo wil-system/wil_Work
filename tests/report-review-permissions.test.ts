@@ -6,7 +6,6 @@ import {
   canReviewWorkReport,
   getReportAuthorLevel,
   getReportRecipientProfiles,
-  getReviewableAuthorProfiles,
 } from '../lib/report-review-permissions.ts';
 import type { BoardPermission, Profile, WorkReport } from '../lib/types.ts';
 
@@ -32,33 +31,26 @@ test('classifies report authors by admin, board leader, and member', () => {
   assert.equal(getReportAuthorLevel(report('member-1'), profiles[3], permissions), 'member');
 });
 
-test('allows leaders to review member reports only', () => {
+test('does not allow hierarchy reviewers unless they are the selected recipient', () => {
   assert.equal(canReviewWorkReport({
     reviewer: profiles[1],
     report: report('member-1'),
     author: profiles[3],
     permissions,
-  }), true);
-
-  assert.equal(canReviewWorkReport({
-    reviewer: profiles[1],
-    report: report('leader-2'),
-    author: profiles[2],
-    permissions,
   }), false);
-});
 
-test('allows admins to review leader reports but prevents self review', () => {
   assert.equal(canReviewWorkReport({
     reviewer: profiles[0],
     report: report('leader-1'),
     author: profiles[1],
     permissions,
-  }), true);
+  }), false);
+});
 
+test('prevents self review even if the report recipient is the author', () => {
   assert.equal(canReviewWorkReport({
     reviewer: profiles[0],
-    report: report('admin-1'),
+    report: { ...report('admin-1'), recipientId: 'admin-1' },
     author: profiles[0],
     permissions,
   }), false);
@@ -90,17 +82,6 @@ test('builds report recipient options from approved users excluding the author',
   });
 
   assert.deepEqual(recipients.map(recipient => recipient.id), ['admin-1', 'leader-1', 'leader-2']);
-});
-
-test('limits leader author filters to reviewable subordinate profiles', () => {
-  const authors = getReviewableAuthorProfiles({
-    reviewer: profiles[1],
-    boardIds: ['sales'],
-    profiles,
-    permissions,
-  });
-
-  assert.deepEqual(authors.map(author => author.id), ['member-1']);
 });
 
 test('allows review decisions only for reports waiting for review', () => {

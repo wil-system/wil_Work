@@ -4,7 +4,7 @@ import PaginationNav from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import WorkReportReviewSubmitButton from '@/components/work-report-review-submit-button';
-import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
+import { getAllBoardPermissions } from '@/lib/db/boards';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getReportById, getReportPage } from '@/lib/db/reports';
@@ -13,7 +13,6 @@ import {
   canReviewWorkReport,
   canSubmitReviewDecision,
   getReportAuthorLevel,
-  getReviewableAuthorProfiles,
   REPORT_ACTOR_LABEL,
 } from '@/lib/report-review-permissions';
 import type { Profile, ReportReviewStatus, WorkReport } from '@/lib/types';
@@ -199,9 +198,9 @@ function ReviewReportRow({
 
         {canSubmitReview && <ReviewForm report={report} />}
         {canReview && !canSubmitReview && <ReviewActionStatus status={report.reviewStatus} />}
-        {!canReview && authorLevel === 'leader' && (
+        {!canReview && (
           <div className="mt-3 rounded-lg bg-[var(--stone-50)] px-3 py-2 text-[12px] text-[var(--stone-600)]">
-            팀장 업무보고는 관리자만 검토할 수 있습니다.
+            수신자로 지정된 사용자만 검토할 수 있습니다.
           </div>
         )}
       </div>
@@ -227,35 +226,15 @@ export default async function WorkReportReviewPage({
   const reviewStatus = isReviewStatus(statusParam) ? statusParam : undefined;
   const page = parsePageParam(one(params.page));
 
-  const [boards, allProfiles, permissions, unreadCount, selectedReportCandidate] = await Promise.all([
-    getAccessibleBoards(user.id),
+  const [allProfiles, permissions, unreadCount, selectedReportCandidate] = await Promise.all([
     getAllProfiles(),
     getAllBoardPermissions(),
     getUnreadNotificationCount(),
     selectedReportId ? getReportById(selectedReportId) : Promise.resolve(null),
   ]);
 
-  const leaderBoardIds = new Set(
-    permissions
-      .filter(permission => permission.profileId === user.id && permission.role === 'leader')
-      .map(permission => permission.boardId)
-  );
-  const isHierarchyReviewer = user.role === 'admin' || leaderBoardIds.size > 0;
-
-  const reportBoards = boards
-    .filter(board => board.id !== 'feed' && board.id !== 'notice')
-    .filter(board => user.role === 'admin' || leaderBoardIds.has(board.id));
-  const allowedBoardIds = reportBoards.map(board => board.id);
   const approvedProfiles = allProfiles.filter(profile => profile.status === 'approved');
-  const reviewableAuthorProfiles = getReviewableAuthorProfiles({
-    reviewer: user,
-    boardIds: allowedBoardIds,
-    profiles: approvedProfiles,
-    permissions,
-  });
-  const filterProfiles = isHierarchyReviewer
-    ? user.role === 'admin' ? approvedProfiles : reviewableAuthorProfiles
-    : approvedProfiles.filter(profile => profile.id !== user.id);
+  const filterProfiles = approvedProfiles.filter(profile => profile.id !== user.id);
   const departments = [...new Set(filterProfiles.map(profile => profile.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   const safeAuthorId = authorId && filterProfiles.some(profile => profile.id === authorId) ? authorId : '';
   const departmentAuthorIds = department
@@ -266,14 +245,12 @@ export default async function WorkReportReviewPage({
     from,
     to,
     reviewStatuses: reviewStatus ? [reviewStatus] : REVIEW_STATUSES,
-    ...(isHierarchyReviewer ? { boardIds: allowedBoardIds } : { recipientId: user.id }),
+    recipientId: user.id,
     ...(safeAuthorId
       ? { authorId: safeAuthorId }
       : departmentAuthorIds
         ? { authorIds: departmentAuthorIds }
-        : isHierarchyReviewer && user.role !== 'admin'
-          ? { authorIds: reviewableAuthorProfiles.map(profile => profile.id) }
-          : {}),
+        : {}),
   };
 
   const [{ reports, total }] = await Promise.all([
@@ -320,7 +297,6 @@ export default async function WorkReportReviewPage({
     <div className="flex h-full flex-col overflow-hidden">
       <Topbar
         title="업무보고 검토"
-        subtitle="팀원 보고는 팀장이, 팀장 보고는 관리자가 검토합니다"
         breadcrumb={[{ label: '업무게시판', href: '/work-report' }, { label: '검토' }]}
         currentUser={user}
         unreadCount={unreadCount}
@@ -372,11 +348,10 @@ export default async function WorkReportReviewPage({
                   .map(profile => {
                     const level = profile.role === 'admin'
                       ? 'admin'
-                      : allowedBoardIds.some(boardId => permissions.some(permission =>
+                      : permissions.some(permission =>
                         permission.profileId === profile.id &&
-                        permission.boardId === boardId &&
                         permission.role === 'leader'
-                      ))
+                      )
                         ? 'leader'
                         : 'member';
                     return <option key={profile.id} value={profile.id}>{profile.name} ({REPORT_ACTOR_LABEL[level]})</option>;
