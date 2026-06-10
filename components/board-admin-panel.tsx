@@ -222,20 +222,6 @@ export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
             </div>
             <form onSubmit={handleAdd} className="space-y-4 p-6">
               <div>
-                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
-                  게시판 ID * <span className="normal-case font-normal text-[var(--muted)]">영문, 숫자, 하이픈</span>
-                </label>
-                <input
-                  type="text"
-                  name="id"
-                  required
-                  placeholder="예: finance"
-                  pattern="[a-z0-9\-]+"
-                  className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
-                  style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
-                />
-              </div>
-              <div>
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">게시판 이름 *</label>
                 <input
                   type="text"
