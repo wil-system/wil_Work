@@ -491,16 +491,11 @@ function ChatMessage({
             <Avatar initial={author.avatarInitial} color={author.avatarColor} size="sm" />
             <div className="flex-1 flex items-center gap-2 flex-wrap">
               <span className="text-[13px] font-semibold" style={{ color: 'var(--foreground)' }}>{author.name}</span>
-              {author.role === 'admin' && <Badge variant="indigo">관리자</Badge>}
               {isBusiness && post.workStatus && (
                 <Badge variant={WORK_STATUS_BADGE[post.workStatus]}>{WORK_STATUS_LABEL[post.workStatus]}</Badge>
               )}
               {isBusiness && assignee && (
                 <span className="text-[11px] font-semibold text-[var(--stone-500)]">@{assignee.name}</span>
-              )}
-              {isMyMessage && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                  style={{ background: 'var(--stone-100)', color: 'var(--stone-500)' }}>나</span>
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">

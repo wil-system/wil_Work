@@ -94,7 +94,7 @@ export default function BoardSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-        <NavItem href="/feed" icon={LayoutDashboard} label="전체 피드" active={isActive('/feed')} />
+        <NavItem href="/feed" icon={LayoutDashboard} label="전체 피드" active={isActive('/feed')} onSelect={close} />
 
         <div className="mt-3">
           <button
@@ -114,6 +114,7 @@ export default function BoardSidebar({
                 icon={Icon}
                 label={board.name}
                 active={isActive(`/board/${board.id}`)}
+                onSelect={close}
               />
             );
           })}
@@ -150,7 +151,7 @@ export default function BoardSidebar({
             </div>
           )}
           {WORKSPACE_NAV.map(item => (
-            <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} />
+            <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} onSelect={close} />
           ))}
         </div>
 
@@ -172,6 +173,7 @@ export default function BoardSidebar({
                 label={item.label}
                 active={isActive(item.href)}
                 nested
+                onSelect={close}
               />
             ))}
           </div>
@@ -179,8 +181,8 @@ export default function BoardSidebar({
       </div>
 
       <div className="p-3 space-y-0.5" style={{ borderTop: '1px solid var(--line)' }}>
-        <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} />
-        <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} />
+        <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} onSelect={close} />
+        <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} onSelect={close} />
 
         <button
           onClick={() => setShowSignOutConfirm(true)}
@@ -257,13 +259,14 @@ export default function BoardSidebar({
 }
 
 function NavItem({
-  href, icon: Icon, label, active, nested = false,
+  href, icon: Icon, label, active, nested = false, onSelect,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   active: boolean;
   nested?: boolean;
+  onSelect?: () => void;
 }) {
   return (
     <Link
@@ -280,6 +283,7 @@ function NavItem({
       onMouseLeave={e => {
         if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent';
       }}
+      onClick={onSelect}
     >
       <Icon
         size={15}
