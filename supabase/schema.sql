@@ -485,6 +485,11 @@ create policy "Admins can update any profile"
   on work_profiles for update
   using (is_work_admin());
 
+drop policy if exists "Admins can delete other profiles" on work_profiles;
+create policy "Admins can delete other profiles"
+  on work_profiles for delete
+  using (is_work_admin() and id <> auth.uid());
+
 drop policy if exists "Users can insert own profile" on work_profiles;
 create policy "Users can insert own profile"
   on work_profiles for insert

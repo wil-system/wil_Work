@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RotateCcw, Save } from 'lucide-react';
 import { saveMemberUpdates } from '@/app/(workspace)/admin/members/actions';
+import MemberDeleteButton from '@/components/member-delete-button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -122,14 +123,17 @@ export default function MembersAdminPanel({ members, currentUserId }: MembersAdm
                 />
               </div>
               {item.id !== currentUserId && (
-                <button
-                  type="button"
-                  onClick={() => toggleRole(item)}
-                  className="mt-2 w-full rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--stone-50)]"
-                  style={{ borderColor: 'var(--line)', color: 'var(--foreground)' }}
-                >
-                  {item.role === 'admin' ? '회원으로 변경' : '관리자로 변경'}
-                </button>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleRole(item)}
+                    className="w-full rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--stone-50)]"
+                    style={{ borderColor: 'var(--line)', color: 'var(--foreground)' }}
+                  >
+                    {item.role === 'admin' ? '회원으로 변경' : '관리자로 변경'}
+                  </button>
+                  <MemberDeleteButton memberId={member.id} memberName={member.name} variant="full" />
+                </div>
               )}
             </div>
           );
@@ -187,14 +191,17 @@ export default function MembersAdminPanel({ members, currentUserId }: MembersAdm
                     {item.id === currentUserId ? (
                       <span className="text-[11px] text-[var(--muted)]">본인</span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => toggleRole(item)}
-                        className="rounded border px-2 py-1 text-[11px] transition-colors hover:bg-[var(--stone-50)]"
-                        style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
-                      >
-                        {item.role === 'admin' ? '회원 전환' : '관리자 전환'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleRole(item)}
+                          className="rounded border px-2 py-1 text-[11px] transition-colors hover:bg-[var(--stone-50)]"
+                          style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                        >
+                          {item.role === 'admin' ? '회원 전환' : '관리자 전환'}
+                        </button>
+                        <MemberDeleteButton memberId={member.id} memberName={member.name} />
+                      </div>
                     )}
                   </td>
                 </tr>
