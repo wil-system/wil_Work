@@ -21,7 +21,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       .map(permission => permission.boardId)
   );
   const reportBoardCount = boards.filter(board => board.id !== 'feed' && board.id !== 'notice').length;
-  const canWriteWorkReport = user.role === 'admin' ? leaderBoardIds.size > 0 : reportBoardCount > 0;
+  const canWriteWorkReport = reportBoardCount > 0;
   const canReviewWorkReport = user.role === 'admin' || leaderBoardIds.size > 0;
 
   return (

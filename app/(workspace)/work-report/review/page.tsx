@@ -7,7 +7,7 @@ import WorkReportReviewSubmitButton from '@/components/work-report-review-submit
 import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
-import { getReportPage } from '@/lib/db/reports';
+import { getReportById, getReportPage } from '@/lib/db/reports';
 import { getTotalPages, parsePageParam } from '@/lib/pagination';
 import {
   canReviewWorkReport,
@@ -141,17 +141,20 @@ function ReviewReportRow({
   authorLevel,
   reviewer,
   canReview,
+  defaultOpen,
 }: {
   report: WorkReport;
   author?: Profile;
   authorLevel: 'member' | 'leader' | 'admin';
   reviewer?: Profile;
   canReview: boolean;
+  defaultOpen?: boolean;
 }) {
   const canSubmitReview = canReview && canSubmitReviewDecision(report);
 
   return (
     <details
+      open={defaultOpen}
       className="group rounded-lg border bg-white"
       style={{ borderColor: 'var(--line)', borderLeft: `4px solid ${STATUS_ACCENT[report.reviewStatus]}` }}
     >
@@ -217,17 +220,19 @@ export default async function WorkReportReviewPage({
 
   const from = one(params.from) || localDateOffset(-30);
   const to = one(params.to) || localDateOffset(0);
+  const selectedReportId = one(params.report) || '';
   const authorId = one(params.authorId) || '';
   const department = one(params.department) || '';
   const statusParam = one(params.status);
   const reviewStatus = isReviewStatus(statusParam) ? statusParam : undefined;
   const page = parsePageParam(one(params.page));
 
-  const [boards, allProfiles, permissions, unreadCount] = await Promise.all([
+  const [boards, allProfiles, permissions, unreadCount, selectedReportCandidate] = await Promise.all([
     getAccessibleBoards(user.id),
     getAllProfiles(),
     getAllBoardPermissions(),
     getUnreadNotificationCount(),
+    selectedReportId ? getReportById(selectedReportId) : Promise.resolve(null),
   ]);
 
   const leaderBoardIds = new Set(
@@ -235,8 +240,7 @@ export default async function WorkReportReviewPage({
       .filter(permission => permission.profileId === user.id && permission.role === 'leader')
       .map(permission => permission.boardId)
   );
-  const canReview = user.role === 'admin' || leaderBoardIds.size > 0;
-  if (!canReview) redirect('/work-report');
+  const isHierarchyReviewer = user.role === 'admin' || leaderBoardIds.size > 0;
 
   const reportBoards = boards
     .filter(board => board.id !== 'feed' && board.id !== 'notice')
@@ -249,7 +253,9 @@ export default async function WorkReportReviewPage({
     profiles: approvedProfiles,
     permissions,
   });
-  const filterProfiles = user.role === 'admin' ? approvedProfiles : reviewableAuthorProfiles;
+  const filterProfiles = isHierarchyReviewer
+    ? user.role === 'admin' ? approvedProfiles : reviewableAuthorProfiles
+    : approvedProfiles.filter(profile => profile.id !== user.id);
   const departments = [...new Set(filterProfiles.map(profile => profile.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   const safeAuthorId = authorId && filterProfiles.some(profile => profile.id === authorId) ? authorId : '';
   const departmentAuthorIds = department
@@ -260,15 +266,28 @@ export default async function WorkReportReviewPage({
     from,
     to,
     reviewStatuses: reviewStatus ? [reviewStatus] : REVIEW_STATUSES,
-    boardIds: allowedBoardIds,
-    ...(safeAuthorId ? { authorId: safeAuthorId } : departmentAuthorIds ? { authorIds: departmentAuthorIds } : user.role !== 'admin' ? { authorIds: reviewableAuthorProfiles.map(profile => profile.id) } : {}),
+    ...(isHierarchyReviewer ? { boardIds: allowedBoardIds } : { recipientId: user.id }),
+    ...(safeAuthorId
+      ? { authorId: safeAuthorId }
+      : departmentAuthorIds
+        ? { authorIds: departmentAuthorIds }
+        : isHierarchyReviewer && user.role !== 'admin'
+          ? { authorIds: reviewableAuthorProfiles.map(profile => profile.id) }
+          : {}),
   };
 
   const [{ reports, total }] = await Promise.all([
     getReportPage(filters, { page, pageSize: PAGE_SIZE }),
   ]);
+  const selectedReport = selectedReportCandidate && canReviewWorkReport({
+    reviewer: user,
+    report: selectedReportCandidate,
+    author: allProfiles.find(profile => profile.id === selectedReportCandidate.authorId),
+    permissions,
+  })
+    ? selectedReportCandidate
+    : undefined;
   const reviewableReports = reports.filter(report =>
-    user.role === 'admin' ||
     canReviewWorkReport({
       reviewer: user,
       report,
@@ -276,6 +295,9 @@ export default async function WorkReportReviewPage({
       permissions,
     })
   );
+  const visibleReports = selectedReport && !reviewableReports.some(report => report.id === selectedReport.id)
+    ? [selectedReport, ...reviewableReports]
+    : reviewableReports;
   const totalPages = getTotalPages(total, PAGE_SIZE);
   const normalizedPage = Math.min(page, totalPages);
   const profileMap = Object.fromEntries(allProfiles.map(profile => [profile.id, profile]));
@@ -373,7 +395,7 @@ export default async function WorkReportReviewPage({
           </section>
 
           <section className="space-y-2">
-            {reviewableReports.length === 0 ? (
+            {visibleReports.length === 0 ? (
               <div className="card p-12 text-center text-[13px] text-[var(--muted)]">조건에 맞는 검토 항목이 없습니다.</div>
             ) : (
               <>
@@ -386,7 +408,7 @@ export default async function WorkReportReviewPage({
                   <span>작성자</span>
                   <span className="text-right">상세</span>
                 </div>
-                {reviewableReports.map(report => {
+                {visibleReports.map(report => {
                   const author = profileMap[report.authorId];
                   const authorLevel = getReportAuthorLevel(report, author, permissions);
                   return (
@@ -397,6 +419,7 @@ export default async function WorkReportReviewPage({
                       authorLevel={authorLevel}
                       reviewer={report.reviewerId ? profileMap[report.reviewerId] : undefined}
                       canReview={canReviewWorkReport({ reviewer: user, report, author, permissions })}
+                      defaultOpen={selectedReport?.id === report.id}
                     />
                   );
                 })}

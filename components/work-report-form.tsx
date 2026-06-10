@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { submitReport } from '@/app/(workspace)/work-report/actions';
-import type { Board, WorkReport } from '@/lib/types';
+import type { Board, Profile, WorkReport } from '@/lib/types';
 
 function formatLocalDate(date: Date) {
   const year = date.getFullYear();
@@ -16,13 +16,24 @@ function textareaValue(items: string[]) {
   return items.join('\n');
 }
 
-export default function WorkReportForm({ boards, report }: { boards: Board[]; report?: WorkReport }) {
+export default function WorkReportForm({
+  boards,
+  recipients,
+  report,
+}: {
+  boards: Board[];
+  recipients: Profile[];
+  report?: WorkReport;
+}) {
   const router = useRouter();
   const today = useMemo(() => formatLocalDate(new Date()), []);
   const isEditing = Boolean(report);
+  const reportRecipientIsSelectable = Boolean(report?.recipientId && recipients.some(recipient => recipient.id === report.recipientId));
   const [boardId, setBoardId] = useState(report?.boardId ?? boards[0]?.id ?? '');
+  const [recipientId, setRecipientId] = useState(reportRecipientIsSelectable ? report!.recipientId! : recipients[0]?.id ?? '');
   const [periodStart, setPeriodStart] = useState(report?.periodStart ?? today);
   const [periodEnd, setPeriodEnd] = useState(report?.periodEnd ?? today);
+  const recipientLocked = isEditing && reportRecipientIsSelectable;
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -52,6 +63,7 @@ export default function WorkReportForm({ boards, report }: { boards: Board[]; re
       if (!isEditing) {
         formRef.current?.reset();
         setBoardId(boards[0]?.id ?? '');
+        setRecipientId(recipients[0]?.id ?? '');
         setPeriodStart(today);
         setPeriodEnd(today);
       }
@@ -60,11 +72,13 @@ export default function WorkReportForm({ boards, report }: { boards: Board[]; re
     }
   }
 
-  if (boards.length === 0) {
+  if (boards.length === 0 || recipients.length === 0) {
     return (
       <div className="card p-5">
         <h2 className="text-[14px] font-bold text-[var(--foreground)]">업무보고 작성</h2>
-        <p className="mt-2 text-[12px] text-[var(--muted)]">보고서를 작성할 수 있는 부서 권한이 없습니다.</p>
+        <p className="mt-2 text-[12px] text-[var(--muted)]">
+          {boards.length === 0 ? '보고서를 작성할 수 있는 부서 권한이 없습니다.' : '선택할 수 있는 수신자가 없습니다.'}
+        </p>
       </div>
     );
   }
@@ -83,6 +97,7 @@ export default function WorkReportForm({ boards, report }: { boards: Board[]; re
           <>
             <input type="hidden" name="reportId" value={report!.id} />
             <input type="hidden" name="boardId" value={boardId} />
+            {recipientLocked && <input type="hidden" name="recipientId" value={recipientId} />}
             <input type="hidden" name="periodStart" value={periodStart} />
             <input type="hidden" name="periodEnd" value={periodEnd} />
           </>
@@ -100,6 +115,25 @@ export default function WorkReportForm({ boards, report }: { boards: Board[]; re
           >
             {boards.map(board => (
               <option key={board.id} value={board.id}>{board.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="block text-[11px] font-semibold text-[var(--stone-600)] mb-2 uppercase tracking-wide">수신자</span>
+          <select
+            name="recipientId"
+            value={recipientId}
+            onChange={event => setRecipientId(event.target.value)}
+            disabled={recipientLocked}
+            required
+            className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] disabled:cursor-not-allowed disabled:text-[var(--stone-500)]"
+            style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
+          >
+            {recipients.map(recipient => (
+              <option key={recipient.id} value={recipient.id}>
+                {recipient.department || '부서 미지정'} · {recipient.name}{recipient.position ? ` (${recipient.position})` : ''}
+              </option>
             ))}
           </select>
         </label>

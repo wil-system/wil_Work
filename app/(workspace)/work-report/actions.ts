@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { getAccessibleBoards, getAllBoardPermissions, getBoardPermissionRole } from '@/lib/db/boards';
+import { getAccessibleBoards, getAllBoardPermissions } from '@/lib/db/boards';
 import {
   createReportNotifications,
   getReportById,
@@ -8,7 +8,7 @@ import {
   savePeriodReport,
 } from '@/lib/db/reports';
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
-import { canReviewWorkReport, canSubmitReviewDecision, getReportAuthorLevel } from '@/lib/report-review-permissions';
+import { canReviewWorkReport, canSubmitReviewDecision, getReportAuthorLevel, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import { normalizeReportItems } from '@/lib/report-diff';
 import type { ReportPeriodType, ReportReviewStatus } from '@/lib/types';
 
@@ -32,19 +32,24 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
   const periodLabel = (String(formData.get('periodLabel') ?? '').trim()) || `${periodStart} ~ ${periodEnd}`;
   const periodTypeRaw = String(formData.get('periodType') ?? 'custom');
   const periodType = isPeriodType(periodTypeRaw) ? periodTypeRaw : 'custom';
+  const recipientId = String(formData.get('recipientId') ?? '').trim();
   const reviewStatus: Extract<ReportReviewStatus, 'submitted'> = 'submitted';
 
   if (!periodStart || !periodEnd) return { success: false, error: '기간을 선택하세요.' };
   if (periodStart > periodEnd) return { success: false, error: '종료일은 시작일 이후여야 합니다.' };
+  if (!recipientId) return { success: false, error: '수신자를 선택하세요.' };
 
-  const accessibleBoards = await getAccessibleBoards(user.id);
+  const [accessibleBoards, profiles] = await Promise.all([
+    getAccessibleBoards(user.id),
+    getAllProfiles(),
+  ]);
   const reportBoards = accessibleBoards.filter(board => board.id !== 'feed' && board.id !== 'notice');
   if (!reportBoards.some(board => board.id === boardId)) {
     return { success: false, error: '선택한 부서에 보고서를 작성할 권한이 없습니다.' };
   }
-  const selectedBoardRole = await getBoardPermissionRole(user.id, boardId);
-  if (user.role === 'admin' && selectedBoardRole !== 'leader') {
-    return { success: false, error: '팀장 권한이 있는 부서에만 업무보고를 작성할 수 있습니다.' };
+  const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles });
+  if (!recipientOptions.some(profile => profile.id === recipientId)) {
+    return { success: false, error: '선택할 수 없는 수신자입니다.' };
   }
 
   const goals = normalizeReportItems(String(formData.get('goals') ?? ''));
@@ -69,6 +74,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
       progress,
       issues: issues || undefined,
       nextPlan,
+      recipientId,
       reviewStatus,
     });
     try {

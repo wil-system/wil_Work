@@ -5,6 +5,7 @@ import {
   canSubmitReviewDecision,
   canReviewWorkReport,
   getReportAuthorLevel,
+  getReportRecipientProfiles,
   getReviewableAuthorProfiles,
 } from '../lib/report-review-permissions.ts';
 import type { BoardPermission, Profile, WorkReport } from '../lib/types.ts';
@@ -61,6 +62,34 @@ test('allows admins to review leader reports but prevents self review', () => {
     author: profiles[0],
     permissions,
   }), false);
+});
+
+test('allows a selected recipient to review a delivered report', () => {
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[3],
+    report: { ...report('admin-1'), recipientId: 'member-1' },
+    author: profiles[0],
+    permissions,
+  }), true);
+
+  assert.equal(canReviewWorkReport({
+    reviewer: profiles[3],
+    report: { ...report('admin-1'), recipientId: 'leader-1' },
+    author: profiles[0],
+    permissions,
+  }), false);
+});
+
+test('builds report recipient options from approved users excluding the author', () => {
+  const recipients = getReportRecipientProfiles({
+    currentUserId: 'member-1',
+    profiles: [
+      ...profiles,
+      { id: 'pending-1', name: '대기자', email: 'pending@example.com', role: 'member', status: 'pending', department: '영업', position: '대기', avatarInitial: '대', avatarColor: '#000', joinedAt: '2026-01-01' },
+    ],
+  });
+
+  assert.deepEqual(recipients.map(recipient => recipient.id), ['admin-1', 'leader-1', 'leader-2']);
 });
 
 test('limits leader author filters to reviewable subordinate profiles', () => {

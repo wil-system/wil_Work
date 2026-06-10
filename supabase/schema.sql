@@ -87,6 +87,7 @@ create table if not exists work_reports (
   status text not null default 'draft' check (status in ('draft', 'submitted', 'reviewed')),
   review_status text not null default 'draft' check (review_status in ('draft', 'submitted', 'reviewed', 'changes_requested')),
   previous_report_id uuid references work_reports(id) on delete set null,
+  recipient_id uuid references work_profiles(id) on delete set null,
   reviewer_id uuid references work_profiles(id) on delete set null,
   review_comment text,
   reviewed_at timestamptz,
@@ -376,12 +377,18 @@ declare
   v_board_name text;
   v_period_label text;
   v_review_status text;
-  v_link text := '/work-report?report=' || p_report_id::text;
+  v_recipient_id uuid;
+  v_link text;
   v_inserted integer := 0;
 begin
   if v_actor_id is null or p_event not in ('submitted', 'reviewed', 'changes_requested') then
     return 0;
   end if;
+
+  v_link := case
+    when p_event = 'submitted' then '/work-report/review?report=' || p_report_id::text
+    else '/work-report?report=' || p_report_id::text
+  end;
 
   select
     report.author_id,
@@ -389,8 +396,9 @@ begin
     report.board_id,
     board.name,
     report.period_label,
-    report.review_status
-  into v_author_id, v_author_name, v_board_id, v_board_name, v_period_label, v_review_status
+    report.review_status,
+    report.recipient_id
+  into v_author_id, v_author_name, v_board_id, v_board_name, v_period_label, v_review_status, v_recipient_id
   from public.work_reports report
   join public.work_profiles author on author.id = report.author_id
   join public.work_boards board on board.id = report.board_id
@@ -401,27 +409,43 @@ begin
   end if;
 
   if p_event = 'submitted' then
-    insert into public.work_notifications (profile_id, type, title, body, link)
-    select recipient.id, 'report', '업무보고 제출', v_author_name || '님이 ' || v_period_label || ' 업무보고를 제출했습니다.', v_link
-    from public.work_profiles recipient
-    where recipient.status = 'approved'
-      and recipient.id <> v_actor_id
-      and (
-        recipient.role = 'admin'
-        or exists (
-          select 1 from public.work_board_permissions permission
-          where permission.profile_id = recipient.id
-            and permission.board_id = v_board_id
-            and permission.board_role = 'leader'
+    if v_recipient_id is not null then
+      insert into public.work_notifications (profile_id, type, title, body, link)
+      select recipient.id, 'report', '업무보고 제출', v_author_name || '님이 ' || v_period_label || ' 업무보고를 제출했습니다.', v_link
+      from public.work_profiles recipient
+      where recipient.id = v_recipient_id
+        and recipient.status = 'approved'
+        and recipient.id <> v_actor_id
+        and not exists (
+          select 1 from public.work_notifications existing
+          where existing.profile_id = recipient.id
+            and existing.type = 'report'
+            and existing.link = v_link
+            and existing.title = '업무보고 제출'
+        );
+    else
+      insert into public.work_notifications (profile_id, type, title, body, link)
+      select recipient.id, 'report', '업무보고 제출', v_author_name || '님이 ' || v_period_label || ' 업무보고를 제출했습니다.', v_link
+      from public.work_profiles recipient
+      where recipient.status = 'approved'
+        and recipient.id <> v_actor_id
+        and (
+          recipient.role = 'admin'
+          or exists (
+            select 1 from public.work_board_permissions permission
+            where permission.profile_id = recipient.id
+              and permission.board_id = v_board_id
+              and permission.board_role = 'leader'
+          )
         )
-      )
-      and not exists (
-        select 1 from public.work_notifications existing
-        where existing.profile_id = recipient.id
-          and existing.type = 'report'
-          and existing.link = v_link
-          and existing.title = '업무보고 제출'
-      );
+        and not exists (
+          select 1 from public.work_notifications existing
+          where existing.profile_id = recipient.id
+            and existing.type = 'report'
+            and existing.link = v_link
+            and existing.title = '업무보고 제출'
+        );
+    end if;
   else
     insert into public.work_notifications (profile_id, type, title, body, link)
     select
@@ -573,6 +597,7 @@ create policy "Users can read accessible reports"
     is_work_approved()
     and (
       author_id = auth.uid()
+      or recipient_id = auth.uid()
       or is_work_report_reviewer(board_id, author_id)
     )
   );
@@ -592,6 +617,15 @@ create policy "Users can insert own reports"
         where profile_id = auth.uid() and board_id = work_reports.board_id
       )
     )
+    and (
+      recipient_id is null
+      or exists (
+        select 1 from work_profiles recipient
+        where recipient.id = work_reports.recipient_id
+          and recipient.status = 'approved'
+          and recipient.id <> auth.uid()
+      )
+    )
   );
 
 drop policy if exists "Users can update own reports" on work_reports;
@@ -602,6 +636,7 @@ create policy "Users can update accessible reports"
     is_work_approved()
     and (
       (author_id = auth.uid() and review_status in ('draft', 'submitted', 'changes_requested'))
+      or recipient_id = auth.uid()
       or is_work_report_reviewer(board_id, author_id)
     )
   )
@@ -609,6 +644,7 @@ create policy "Users can update accessible reports"
     is_work_approved()
     and (
       author_id = auth.uid()
+      or recipient_id = auth.uid()
       or is_work_report_reviewer(board_id, author_id)
     )
   );

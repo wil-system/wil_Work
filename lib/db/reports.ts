@@ -46,6 +46,7 @@ function toReport(row: Record<string, unknown>): WorkReport {
     status: ((row.status as WorkReport['status'] | undefined) ?? legacyStatus(reviewStatus)),
     reviewStatus,
     previousReportId: row.previous_report_id as string | undefined,
+    recipientId: row.recipient_id as string | undefined,
     reviewerId: row.reviewer_id as string | undefined,
     reviewComment: row.review_comment as string | undefined,
     reviewedAt: row.reviewed_at as string | undefined,
@@ -59,6 +60,7 @@ export interface ReportFilters {
   boardIds?: string[];
   authorId?: string;
   authorIds?: string[];
+  recipientId?: string;
   reviewStatus?: ReportReviewStatus;
   reviewStatuses?: ReportReviewStatus[];
   from?: string;
@@ -81,6 +83,7 @@ export interface PeriodReportInput {
   progress: string[];
   issues?: string;
   nextPlan: string[];
+  recipientId: string;
   reviewStatus: Extract<ReportReviewStatus, 'submitted'>;
 }
 
@@ -96,6 +99,7 @@ export async function getReports(filters: ReportFilters = {}): Promise<WorkRepor
       .filter(report => !filters.boardIds || filters.boardIds.includes(report.boardId))
       .filter(report => !filters.authorId || report.authorId === filters.authorId)
       .filter(report => !filters.authorIds || filters.authorIds.includes(report.authorId))
+      .filter(report => !filters.recipientId || report.recipientId === filters.recipientId)
       .filter(report => !filters.reviewStatus || report.reviewStatus === filters.reviewStatus)
       .filter(report => !filters.reviewStatuses || filters.reviewStatuses.includes(report.reviewStatus))
       .filter(report => !filters.from || report.periodEnd >= filters.from)
@@ -121,6 +125,7 @@ export async function getReports(filters: ReportFilters = {}): Promise<WorkRepor
     if (filters.authorIds.length === 0) return [];
     query = query.in('author_id', filters.authorIds);
   }
+  if (filters.recipientId) query = query.eq('recipient_id', filters.recipientId);
   if (filters.reviewStatus) query = query.eq('review_status', filters.reviewStatus);
   if (filters.reviewStatuses) {
     if (filters.reviewStatuses.length === 0) return [];
@@ -166,6 +171,7 @@ export async function getReportPage(
   if (filters.boardIds) query = query.in('board_id', filters.boardIds);
   if (filters.authorId) query = query.eq('author_id', filters.authorId);
   if (filters.authorIds) query = query.in('author_id', filters.authorIds);
+  if (filters.recipientId) query = query.eq('recipient_id', filters.recipientId);
   if (filters.reviewStatus) query = query.eq('review_status', filters.reviewStatus);
   if (filters.reviewStatuses) query = query.in('review_status', filters.reviewStatuses);
   if (filters.from) query = query.gte('period_end', filters.from);
@@ -280,6 +286,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
       status: legacyStatus(report.reviewStatus),
       reviewStatus: report.reviewStatus,
       previousReportId: demoReports[existingIndex]?.previousReportId ?? previousReport?.id,
+      recipientId: report.recipientId,
       createdAt: demoReports[existingIndex]?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -326,6 +333,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
     completed_tasks: report.progress,
     status: legacyStatus(report.reviewStatus),
     review_status: report.reviewStatus,
+    recipient_id: report.recipientId,
     reviewer_id: null,
     review_comment: null,
     reviewed_at: null,

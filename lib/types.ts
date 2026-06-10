@@ -81,6 +81,7 @@ export interface WorkReport {
   status: 'draft' | 'submitted' | 'reviewed';
   reviewStatus: ReportReviewStatus;
   previousReportId?: string;
+  recipientId?: string;
   reviewerId?: string;
   reviewComment?: string;
   reviewedAt?: string;

@@ -9,7 +9,7 @@ import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getMyReportHistoryPage, getReportById } from '@/lib/db/reports';
 import { getTotalPages, parsePageParam } from '@/lib/pagination';
-import { canReviseWorkReport } from '@/lib/report-review-permissions';
+import { canReviseWorkReport, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import type { ReportReviewStatus, WorkReport } from '@/lib/types';
 import WorkReportForm from '@/components/work-report-form';
 
@@ -146,12 +146,8 @@ export default async function WorkReportPage({
   );
   const canReview = user.role === 'admin' || leaderBoardIds.size > 0;
   const reportBoards = boards
-    .filter(board => board.id !== 'feed' && board.id !== 'notice')
-    .filter(board => user.role !== 'admin' || leaderBoardIds.has(board.id));
-
-  if (user.role === 'admin' && reportBoards.length === 0) {
-    redirect('/work-report/review');
-  }
+    .filter(board => board.id !== 'feed' && board.id !== 'notice');
+  const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles: allProfiles });
 
   const boardMap = Object.fromEntries(boards.map(board => [board.id, board]));
   const profileMap = Object.fromEntries(allProfiles.map(profile => [profile.id, profile]));
@@ -201,7 +197,7 @@ export default async function WorkReportPage({
                 </Link>
               )}
             </div>
-            <WorkReportForm boards={reportBoards} report={editableReport} />
+            <WorkReportForm boards={reportBoards} recipients={recipientOptions} report={editableReport} />
           </div>
         ) : (
           <section className="card mx-auto max-w-5xl p-5">

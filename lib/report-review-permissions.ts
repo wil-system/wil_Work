@@ -33,11 +33,12 @@ export function canReviewWorkReport({
   permissions,
 }: {
   reviewer: Pick<Profile, 'id' | 'role'>;
-  report: Pick<WorkReport, 'authorId' | 'boardId'>;
+  report: Pick<WorkReport, 'authorId' | 'boardId' | 'recipientId'>;
   author: Pick<Profile, 'role'> | undefined;
   permissions: BoardPermission[];
 }) {
   if (reviewer.id === report.authorId) return false;
+  if (report.recipientId === reviewer.id) return true;
   if (reviewer.role === 'admin') return true;
 
   return isBoardLeader(reviewer.id, report.boardId, permissions) &&
@@ -69,4 +70,19 @@ export function getReviewableAuthorProfiles({
     if (profile.role === 'admin') return false;
     return boardIds.some(boardId => !isBoardLeader(profile.id, boardId, permissions));
   });
+}
+
+export function getReportRecipientProfiles({
+  currentUserId,
+  profiles,
+}: {
+  currentUserId: string;
+  profiles: Profile[];
+}) {
+  return profiles
+    .filter(profile => profile.status === 'approved' && profile.id !== currentUserId)
+    .sort((a, b) =>
+      a.department.localeCompare(b.department, 'ko') ||
+      a.name.localeCompare(b.name, 'ko')
+    );
 }
