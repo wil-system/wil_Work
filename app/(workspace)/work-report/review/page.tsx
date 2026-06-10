@@ -221,7 +221,6 @@ export default async function WorkReportReviewPage({
   const to = one(params.to) || localDateOffset(0);
   const selectedReportId = one(params.report) || '';
   const authorId = one(params.authorId) || '';
-  const department = one(params.department) || '';
   const statusParam = one(params.status);
   const reviewStatus = isReviewStatus(statusParam) ? statusParam : undefined;
   const page = parsePageParam(one(params.page));
@@ -235,22 +234,14 @@ export default async function WorkReportReviewPage({
 
   const approvedProfiles = allProfiles.filter(profile => profile.status === 'approved');
   const filterProfiles = approvedProfiles.filter(profile => profile.id !== user.id);
-  const departments = [...new Set(filterProfiles.map(profile => profile.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   const safeAuthorId = authorId && filterProfiles.some(profile => profile.id === authorId) ? authorId : '';
-  const departmentAuthorIds = department
-    ? filterProfiles.filter(profile => profile.department === department).map(profile => profile.id)
-    : undefined;
 
   const filters = {
     from,
     to,
     reviewStatuses: reviewStatus ? [reviewStatus] : REVIEW_STATUSES,
     recipientId: user.id,
-    ...(safeAuthorId
-      ? { authorId: safeAuthorId }
-      : departmentAuthorIds
-        ? { authorIds: departmentAuthorIds }
-        : {}),
+    ...(safeAuthorId ? { authorId: safeAuthorId } : {}),
   };
 
   const [{ reports, total }] = await Promise.all([
@@ -282,7 +273,6 @@ export default async function WorkReportReviewPage({
     from,
     to,
     ...(safeAuthorId && { authorId: safeAuthorId }),
-    ...(department && { department }),
     ...(reviewStatus && { status: reviewStatus }),
   };
   if (page > totalPages && total > 0) {
@@ -323,28 +313,12 @@ export default async function WorkReportReviewPage({
               </div>
             </div>
 
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              <Link href={buildReviewHref(currentParams, { department: undefined, authorId: undefined, page: 1 })}>
-                <Badge variant={!department ? 'indigo' : 'gray'}>전체 부서</Badge>
-              </Link>
-              {departments.map(item => (
-                <Link key={item} href={buildReviewHref(currentParams, { department: item, authorId: undefined, page: 1 })}>
-                  <Badge variant={department === item ? 'indigo' : 'gray'}>{item}</Badge>
-                </Link>
-              ))}
-            </div>
-
-            <form className="grid grid-cols-1 gap-2 md:grid-cols-6" action="/work-report/review">
+            <form className="grid grid-cols-1 gap-2 md:grid-cols-5" action="/work-report/review">
               <input type="date" name="from" defaultValue={from} className="rounded-lg border px-2.5 py-2 text-[12px] outline-none" style={{ borderColor: 'var(--line)' }} />
               <input type="date" name="to" defaultValue={to} className="rounded-lg border px-2.5 py-2 text-[12px] outline-none" style={{ borderColor: 'var(--line)' }} />
-              <select name="department" defaultValue={department} className="rounded-lg border px-2.5 py-2 text-[12px] outline-none" style={{ borderColor: 'var(--line)' }}>
-                <option value="">전체 부서</option>
-                {departments.map(item => <option key={item} value={item}>{item}</option>)}
-              </select>
               <select name="authorId" defaultValue={safeAuthorId} className="rounded-lg border px-2.5 py-2 text-[12px] outline-none" style={{ borderColor: 'var(--line)' }}>
                 <option value="">전체 작성자</option>
                 {filterProfiles
-                  .filter(profile => !department || profile.department === department)
                   .map(profile => {
                     const level = profile.role === 'admin'
                       ? 'admin'
