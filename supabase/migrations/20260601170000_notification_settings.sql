@@ -1,4 +1,4 @@
-﻿create table if not exists public.work_notification_settings (
+create table if not exists public.work_notification_settings (
   profile_id uuid primary key references public.work_profiles(id) on delete cascade,
   comment_notifications boolean not null default true,
   approval_notifications boolean not null default true,
