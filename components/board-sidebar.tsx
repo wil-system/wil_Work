@@ -137,6 +137,7 @@ export default function BoardSidebar({
                   label="업무보고 작성"
                   active={pathname === '/work-report'}
                   nested
+                  onSelect={close}
                 />
               )}
               {canReviewWorkReport && (
@@ -146,6 +147,7 @@ export default function BoardSidebar({
                   label="업무보고 검토"
                   active={isActive('/work-report/review')}
                   nested
+                  onSelect={close}
                 />
               )}
             </div>

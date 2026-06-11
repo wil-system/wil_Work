@@ -17,3 +17,12 @@ test('always exposes the work report write nav item for approved workspace users
     false,
   );
 });
+
+test('work report sidebar links close the mobile menu after selection', () => {
+  const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
+  const writeNav = sidebarSource.match(/<NavItem\s*\r?\n\s*href="\/work-report\?mode=write"[\s\S]*?\/>/)?.[0] ?? '';
+  const reviewNav = sidebarSource.match(/<NavItem\s*\r?\n\s*href="\/work-report\/review"[\s\S]*?\/>/)?.[0] ?? '';
+
+  assert.match(writeNav, /onSelect=\{close\}/);
+  assert.match(reviewNav, /onSelect=\{close\}/);
+});
