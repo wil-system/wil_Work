@@ -21,7 +21,6 @@ export default async function PermissionsPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title="권한 관리"
-        subtitle="게시판별 접근 허용과 직급을 지정합니다"
         breadcrumb={[{ label: '관리자' }, { label: '권한 관리' }]}
         currentUser={user!}
         unreadCount={unreadCount}

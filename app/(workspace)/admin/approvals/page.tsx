@@ -35,7 +35,6 @@ export default async function ApprovalsPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title="가입 승인"
-        subtitle={`승인 대기 중인 신청 ${pending.length}건`}
         breadcrumb={[{ label: '관리자' }, { label: '가입 승인' }]}
         currentUser={user!}
         unreadCount={unreadCount}

@@ -70,7 +70,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar title="알림" subtitle={`읽지 않은 알림 ${unread.length}개`} currentUser={user} unreadCount={unread.length} />
+      <Topbar title="알림" currentUser={user} unreadCount={unread.length} />
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 max-w-2xl">
         {notifications.length === 0 && (
           <div className="card p-12 text-center text-[var(--muted)] text-[13px]">알림이 없습니다.</div>

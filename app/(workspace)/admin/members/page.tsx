@@ -22,7 +22,6 @@ export default async function MembersPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title="회원 관리"
-        subtitle={`전체 회원 ${approved.length}명`}
         breadcrumb={[{ label: '관리자' }, { label: '회원 관리' }]}
         currentUser={user}
         unreadCount={unreadCount}

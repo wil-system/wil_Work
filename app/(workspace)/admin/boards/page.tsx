@@ -18,7 +18,6 @@ export default async function BoardsAdminPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title="게시판 관리"
-        subtitle="게시판을 추가하고 설정하세요"
         breadcrumb={[{ label: '관리자' }, { label: '게시판 관리' }]}
         currentUser={user}
         unreadCount={unreadCount}

@@ -29,7 +29,6 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title={board.name}
-        subtitle={board.description}
         breadcrumb={[{ label: '게시판' }, { label: board.name }]}
         currentUser={user!}
         unreadCount={unreadCount}

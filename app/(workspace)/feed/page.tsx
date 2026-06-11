@@ -23,7 +23,6 @@ export default async function FeedPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         title="전체 피드"
-        subtitle="WIL 팀 채팅"
         currentUser={user}
         unreadCount={unreadCount}
       />
