@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/demo-mode';
 import { CURRENT_USER_ID, mockProfiles } from '@/lib/mock-data';
 import type { Profile } from '@/lib/types';
@@ -62,6 +63,12 @@ export async function getPendingProfiles(): Promise<Profile[]> {
 
 export async function updateProfileStatus(id: string, status: 'approved' | 'rejected'): Promise<void> {
   if (isDemoMode()) return;
+
+  if (status === 'approved') {
+    const adminSupabase = createAdminClient();
+    const { error: authError } = await adminSupabase.auth.admin.updateUserById(id, { email_confirm: true });
+    if (authError) throw authError;
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.from('work_profiles').update({ status }).eq('id', id);

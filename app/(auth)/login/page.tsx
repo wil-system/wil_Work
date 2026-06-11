@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getLoginErrorMessage } from '@/lib/login-auth-errors';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function LoginPage() {
 
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      setError(getLoginErrorMessage(authError));
       setLoading(false);
       return;
     }
