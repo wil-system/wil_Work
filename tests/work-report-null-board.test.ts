@@ -25,3 +25,10 @@ test('work report persistence stores missing board ids as null without departmen
   assert.match(reportDbSource, /board_id:\s*report\.boardId\s*\?\?\s*null/);
   assert.equal(reportDbSource.includes("?? 'feed'"), false);
 });
+
+test('work report form moves to history after a new report submission succeeds', () => {
+  const formSource = read('components/work-report-form.tsx');
+
+  assert.match(formSource, /router\.replace\(result\.reportId \? `\/work-report\?report=\$\{result\.reportId\}` : '\/work-report'\)/);
+  assert.equal(formSource.includes('formRef.current?.reset()'), false);
+});

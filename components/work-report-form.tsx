@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { submitReport } from '@/app/(workspace)/work-report/actions';
@@ -34,7 +34,6 @@ export default function WorkReportForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,23 +45,18 @@ export default function WorkReportForm({
     setSubmitting(false);
 
     if (result.success) {
-      if (isEditing) {
-        setSubmitted(true);
-        setMessage({ type: 'success', text: '수정한 업무보고가 다시 제출되었습니다.' });
-        router.replace(`/work-report?report=${result.reportId ?? report!.id}`);
-        router.refresh();
-        return;
-      }
+      setSubmitted(true);
       setMessage({
         type: 'success',
         text: isEditing ? '수정한 업무보고가 다시 제출되었습니다.' : '업무보고가 제출되었습니다.',
       });
-      if (!isEditing) {
-        formRef.current?.reset();
-        setRecipientId(recipients[0]?.id ?? '');
-        setPeriodStart(today);
-        setPeriodEnd(today);
+      if (isEditing) {
+        router.replace(`/work-report?report=${result.reportId ?? report!.id}`);
+      } else {
+        router.replace(result.reportId ? `/work-report?report=${result.reportId}` : '/work-report');
       }
+      router.refresh();
+      return;
     } else {
       setMessage({ type: 'error', text: result.error ?? '오류가 발생했습니다.' });
     }
@@ -88,7 +82,7 @@ export default function WorkReportForm({
         </p>
       </div>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {isEditing && (
           <>
             <input type="hidden" name="reportId" value={report!.id} />
