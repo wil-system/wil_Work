@@ -15,7 +15,6 @@ import {
   getReportAuthorLevel,
   REPORT_ACTOR_LABEL,
 } from '@/lib/report-review-permissions';
-import { getWorkReportDepartmentLabel } from '@/lib/work-report-departments';
 import type { Profile, ReportReviewStatus, WorkReport } from '@/lib/types';
 import { reviewReportAction } from '../actions';
 
@@ -160,7 +159,7 @@ function ReviewReportRow({
     >
       <summary className="grid cursor-pointer list-none grid-cols-1 gap-2 px-3 py-2.5 text-[12px] transition-colors hover:bg-[var(--stone-50)] md:grid-cols-[150px_1fr_110px_74px] md:items-center [&::-webkit-details-marker]:hidden">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="gray">{getWorkReportDepartmentLabel(report.department, author?.department)}</Badge>
+          <Badge variant="gray">{author?.department ?? '부서 미지정'}</Badge>
           <Badge variant={authorLevel === 'admin' ? 'indigo' : authorLevel === 'leader' ? 'yellow' : 'gray'}>
             {REPORT_ACTOR_LABEL[authorLevel]}
           </Badge>

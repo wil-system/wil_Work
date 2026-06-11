@@ -9,7 +9,6 @@ import {
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { canReviewWorkReport, canSubmitReviewDecision, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import { normalizeReportItems } from '@/lib/report-diff';
-import { getWorkReportDepartmentOptions, normalizeWorkReportDepartment } from '@/lib/work-report-departments';
 import type { ReportPeriodType, ReportReviewStatus } from '@/lib/types';
 
 function isPeriodType(value: string): value is ReportPeriodType {
@@ -27,7 +26,6 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
 
   const reportId = String(formData.get('reportId') ?? '').trim();
   const boardId = String(formData.get('boardId') ?? '').trim();
-  const department = normalizeWorkReportDepartment(String(formData.get('department') ?? ''));
   const periodStart = parseDate(formData.get('periodStart'));
   const periodEnd = parseDate(formData.get('periodEnd'));
   const periodLabel = (String(formData.get('periodLabel') ?? '').trim()) || `${periodStart} ~ ${periodEnd}`;
@@ -41,10 +39,6 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
   if (!recipientId) return { success: false, error: '수신자를 선택하세요.' };
 
   const profiles = await getAllProfiles();
-  const departmentOptions = getWorkReportDepartmentOptions(profiles);
-  if (department && !departmentOptions.includes(department)) {
-    return { success: false, error: '회원관리 부서 목록에 없는 부서입니다.' };
-  }
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles });
   if (!recipientOptions.some(profile => profile.id === recipientId)) {
     return { success: false, error: '선택할 수 없는 수신자입니다.' };
@@ -64,7 +58,6 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
       reportId: reportId || undefined,
       authorId: user.id,
       boardId: boardId || undefined,
-      department: department || undefined,
       periodStart,
       periodEnd,
       periodLabel,

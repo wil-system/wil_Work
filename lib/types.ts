@@ -67,7 +67,6 @@ export interface WorkReport {
   id: string;
   authorId: string;
   boardId?: string;
-  department?: string;
   date: string;
   periodStart: string;
   periodEnd: string;

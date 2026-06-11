@@ -55,12 +55,11 @@ test('work report insert policy allows null-board reports while still blocking n
   assert.match(migrationPolicy, /board_id\s+is\s+null/);
 });
 
-test('work report schema stores selected department separately from board id', () => {
+test('work report schema does not require a separate selected department column', () => {
   const schema = read('supabase/schema.sql');
-  const migration = read('supabase/migrations/20260611100000_work_report_departments.sql');
 
-  assert.match(schema, /department\s+text\s+not\s+null\s+default\s+''/);
-  assert.match(migration, /add column if not exists department text not null default ''/);
-  assert.match(migration, /report\.department/);
-  assert.match(migration, /부서 미지정/);
+  const workReportsTable = schema.match(/create table if not exists work_reports \([\s\S]*?\n\);/);
+  assert.ok(workReportsTable, 'work_reports table should exist');
+  assert.equal(workReportsTable[0].includes('department text'), false);
+  assert.equal(schema.includes('report.department'), false);
 });
