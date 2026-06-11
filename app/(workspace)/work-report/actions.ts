@@ -1,6 +1,5 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { getAccessibleBoards } from '@/lib/db/boards';
 import {
   createReportNotifications,
   getReportById,
@@ -10,7 +9,7 @@ import {
 import { getAllProfiles, getCurrentProfile } from '@/lib/db/profiles';
 import { canReviewWorkReport, canSubmitReviewDecision, getReportRecipientProfiles } from '@/lib/report-review-permissions';
 import { normalizeReportItems } from '@/lib/report-diff';
-import { getWorkReportBoards } from '@/lib/work-report-boards';
+import { getWorkReportDepartmentOptions, normalizeWorkReportDepartment } from '@/lib/work-report-departments';
 import type { ReportPeriodType, ReportReviewStatus } from '@/lib/types';
 
 function isPeriodType(value: string): value is ReportPeriodType {
@@ -28,6 +27,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
 
   const reportId = String(formData.get('reportId') ?? '').trim();
   const boardId = String(formData.get('boardId') ?? '').trim();
+  const department = normalizeWorkReportDepartment(String(formData.get('department') ?? ''));
   const periodStart = parseDate(formData.get('periodStart'));
   const periodEnd = parseDate(formData.get('periodEnd'));
   const periodLabel = (String(formData.get('periodLabel') ?? '').trim()) || `${periodStart} ~ ${periodEnd}`;
@@ -40,13 +40,10 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
   if (periodStart > periodEnd) return { success: false, error: '종료일은 시작일 이후여야 합니다.' };
   if (!recipientId) return { success: false, error: '수신자를 선택하세요.' };
 
-  const [accessibleBoards, profiles] = await Promise.all([
-    getAccessibleBoards(user.id),
-    getAllProfiles(),
-  ]);
-  const reportBoards = getWorkReportBoards(accessibleBoards);
-  if (boardId && !reportBoards.some(board => board.id === boardId)) {
-    return { success: false, error: '선택한 부서에 보고서를 작성할 권한이 없습니다.' };
+  const profiles = await getAllProfiles();
+  const departmentOptions = getWorkReportDepartmentOptions(profiles);
+  if (department && !departmentOptions.includes(department)) {
+    return { success: false, error: '회원관리 부서 목록에 없는 부서입니다.' };
   }
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles });
   if (!recipientOptions.some(profile => profile.id === recipientId)) {
@@ -67,6 +64,7 @@ export async function submitReport(formData: FormData): Promise<{ success: boole
       reportId: reportId || undefined,
       authorId: user.id,
       boardId: boardId || undefined,
+      department: department || undefined,
       periodStart,
       periodEnd,
       periodLabel,

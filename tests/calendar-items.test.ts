@@ -154,7 +154,7 @@ test('filters calendar items by selected day without mixing dates', () => {
   assert.deepEqual(selected.map(item => item.id), ['event-1', 'todo-1']);
 });
 
-test('shows schedule and todo desktop panes together', () => {
+test('exposes schedule and todo desktop list sections', () => {
   assert.deepEqual(getCalendarListSectionKeys(), ['event', 'todo']);
 });
 

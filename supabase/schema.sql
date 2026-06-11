@@ -73,6 +73,7 @@ create table if not exists work_reports (
   id uuid primary key default gen_random_uuid(),
   author_id uuid references work_profiles(id) on delete cascade not null,
   board_id text references work_boards(id) on delete cascade,
+  department text not null default '',
   date date not null default current_date,
   period_start date not null default current_date,
   period_end date not null default current_date,
@@ -394,7 +395,7 @@ begin
     report.author_id,
     author.name,
     report.board_id,
-    coalesce(board.name, '부서 미지정'),
+    coalesce(nullif(report.department, ''), board.name, '부서 미지정'),
     report.period_label,
     report.review_status,
     report.recipient_id

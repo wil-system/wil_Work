@@ -19,6 +19,7 @@ import {
   buildTaskWeekRows,
   calendarEventFromRow,
   getCalendarItemsForDate,
+  getCalendarListSectionKeys,
   getCalendarWeekIndexForDate,
   getMobileCalendarSectionKeys,
   getMonthDateRange,
@@ -89,6 +90,7 @@ const TODO_COLOR_STYLE: Record<TodoColor, {
 
 type FormMode = 'event' | 'todo';
 type MobileTab = 'calendar' | 'todo';
+type DesktopListTab = 'event' | 'todo';
 
 function buildCalendar(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -320,6 +322,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => getInitialTaskDate(initialYear, initialMonth));
   const [mobileTab, setMobileTab] = useState<MobileTab>('calendar');
+  const [desktopListTab, setDesktopListTab] = useState<DesktopListTab>('event');
   const [pendingTodoId, setPendingTodoId] = useState('');
 
   const fetchEvents = useCallback(async (y: number, m: number) => {
@@ -446,6 +449,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
   const visibleListEvents = selectedDayEvents;
   const visibleListTodos = selectedDayTodos;
   const mobileCalendarSections = getMobileCalendarSectionKeys();
+  const desktopListSections = getCalendarListSectionKeys();
   const listDateLabel = formatLongDate(selectedDate);
   const todayDate = new Date();
   const today =
@@ -657,74 +661,106 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
               ))}
             </section>
 
-            <div className="hidden min-h-[520px] max-h-[calc(100vh-190px)] grid-rows-2 gap-3 md:grid">
-              <section className="card flex min-h-0 flex-col p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <CalendarDays size={15} className="shrink-0 text-[var(--indigo-600)]" />
-                    <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
-                      {listDateLabel} 일정
-                    </h3>
-                  </div>
-                  <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListEvents.length}개</span>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                  {visibleListEvents.length === 0 ? (
-                    <div className="rounded-lg border border-dashed bg-white px-3 py-8 text-center text-[12px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
-                      선택한 날짜의 일정이 없습니다.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {visibleListEvents.map(event => (
-                        <div key={event.id} className="rounded-lg border bg-white px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
-                          <div className="mb-1 flex items-start justify-between gap-2">
-                            <span className="text-[13px] font-semibold text-[var(--foreground)]">
-                              {event.title}
-                            </span>
-                            <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
-                          </div>
-                          <div className="text-[11px] text-[var(--muted)]">
-                            {event.date.replace(/-/g, '.')}
-                          </div>
-                          {event.description && (
-                            <div className="mt-1 text-[11px] text-[var(--stone-600)]">
-                              {event.description}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
+            <section className="card hidden min-h-[520px] max-h-[calc(100vh-190px)] min-w-0 flex-col p-4 md:flex">
+              <div className="mb-3 grid grid-cols-2 rounded-lg border bg-white p-1" style={{ borderColor: 'var(--line)' }}>
+                {desktopListSections.map(section => {
+                  const active = desktopListTab === section;
+                  const Icon = section === 'event' ? CalendarDays : ListTodo;
+                  const label = section === 'event' ? '일정' : '할일';
+                  const count = section === 'event' ? visibleListEvents.length : visibleListTodos.length;
 
-              <section className="card flex min-h-0 flex-col p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <ListTodo size={15} className="shrink-0 text-[var(--indigo-600)]" />
-                    <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
-                      {listDateLabel} 할일
-                    </h3>
+                  return (
+                    <button
+                      key={section}
+                      type="button"
+                      data-calendar-desktop-tab={section}
+                      onClick={() => setDesktopListTab(section)}
+                      className="flex min-w-0 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-semibold"
+                      style={{
+                        background: active ? 'var(--indigo-600)' : 'transparent',
+                        color: active ? 'white' : 'var(--stone-600)',
+                      }}
+                      aria-pressed={active}
+                    >
+                      <Icon size={14} />
+                      <span>{label}</span>
+                      <span className="text-[10px] opacity-80">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {desktopListTab === 'event' && (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <CalendarDays size={15} className="shrink-0 text-[var(--indigo-600)]" />
+                      <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
+                        {listDateLabel} 일정
+                      </h3>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListEvents.length}개</span>
                   </div>
-                  <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListTodos.length}개</span>
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    {visibleListEvents.length === 0 ? (
+                      <div className="rounded-lg border border-dashed bg-white px-3 py-8 text-center text-[12px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
+                        선택한 날짜의 일정이 없습니다.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {visibleListEvents.map(event => (
+                          <div key={event.id} className="rounded-lg border bg-white px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <span className="text-[13px] font-semibold text-[var(--foreground)]">
+                                {event.title}
+                              </span>
+                              <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                            </div>
+                            <div className="text-[11px] text-[var(--muted)]">
+                              {event.date.replace(/-/g, '.')}
+                            </div>
+                            {event.description && (
+                              <div className="mt-1 text-[11px] text-[var(--stone-600)]">
+                                {event.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                  <TaskPanel
-                    todos={visibleListTodos}
-                    year={year}
-                    month={month}
-                    selectedDate={selectedDate}
-                    pendingTodoId={pendingTodoId}
-                    onSelectDate={selectCalendarDate}
-                    onAddTodo={openTodoForm}
-                    onToggleTodo={handleToggleTodo}
-                    mode="list"
-                    emptyMessage="선택한 날짜의 할일이 없습니다."
-                    className=""
-                  />
+              )}
+
+              {desktopListTab === 'todo' && (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <ListTodo size={15} className="shrink-0 text-[var(--indigo-600)]" />
+                      <h3 className="truncate text-[13px] font-bold text-[var(--foreground)]">
+                        {listDateLabel} 할일
+                      </h3>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">{visibleListTodos.length}개</span>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    <TaskPanel
+                      todos={visibleListTodos}
+                      year={year}
+                      month={month}
+                      selectedDate={selectedDate}
+                      pendingTodoId={pendingTodoId}
+                      onSelectDate={selectCalendarDate}
+                      onAddTodo={openTodoForm}
+                      onToggleTodo={handleToggleTodo}
+                      mode="list"
+                      emptyMessage="선택한 날짜의 할일이 없습니다."
+                      className=""
+                    />
+                  </div>
                 </div>
-              </section>
-            </div>
+              )}
+            </section>
           </div>
         </div>
       </div>

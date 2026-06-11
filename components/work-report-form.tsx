@@ -3,8 +3,8 @@ import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { submitReport } from '@/app/(workspace)/work-report/actions';
-import { UNASSIGNED_WORK_REPORT_BOARD_LABEL } from '@/lib/work-report-boards';
-import type { Board, Profile, WorkReport } from '@/lib/types';
+import { UNASSIGNED_WORK_REPORT_DEPARTMENT_LABEL } from '@/lib/work-report-departments';
+import type { Profile, WorkReport } from '@/lib/types';
 
 function formatLocalDate(date: Date) {
   const year = date.getFullYear();
@@ -18,11 +18,11 @@ function textareaValue(items: string[]) {
 }
 
 export default function WorkReportForm({
-  boards,
+  departmentOptions,
   recipients,
   report,
 }: {
-  boards: Board[];
+  departmentOptions: string[];
   recipients: Profile[];
   report?: WorkReport;
 }) {
@@ -30,7 +30,7 @@ export default function WorkReportForm({
   const today = useMemo(() => formatLocalDate(new Date()), []);
   const isEditing = Boolean(report);
   const reportRecipientIsSelectable = Boolean(report?.recipientId && recipients.some(recipient => recipient.id === report.recipientId));
-  const [boardId, setBoardId] = useState(report?.boardId ?? '');
+  const [department, setDepartment] = useState(report?.department ?? '');
   const [recipientId, setRecipientId] = useState(reportRecipientIsSelectable ? report!.recipientId! : recipients[0]?.id ?? '');
   const [periodStart, setPeriodStart] = useState(report?.periodStart ?? today);
   const [periodEnd, setPeriodEnd] = useState(report?.periodEnd ?? today);
@@ -63,7 +63,7 @@ export default function WorkReportForm({
       });
       if (!isEditing) {
         formRef.current?.reset();
-        setBoardId('');
+        setDepartment('');
         setRecipientId(recipients[0]?.id ?? '');
         setPeriodStart(today);
         setPeriodEnd(today);
@@ -97,7 +97,8 @@ export default function WorkReportForm({
         {isEditing && (
           <>
             <input type="hidden" name="reportId" value={report!.id} />
-            <input type="hidden" name="boardId" value={boardId} />
+            <input type="hidden" name="boardId" value={report?.boardId ?? ''} />
+            <input type="hidden" name="department" value={department} />
             {recipientLocked && <input type="hidden" name="recipientId" value={recipientId} />}
             <input type="hidden" name="periodStart" value={periodStart} />
             <input type="hidden" name="periodEnd" value={periodEnd} />
@@ -106,16 +107,16 @@ export default function WorkReportForm({
         <label className="block">
           <span className="block text-[11px] font-semibold text-[var(--stone-600)] mb-2 uppercase tracking-wide">부서</span>
           <select
-            name="boardId"
-            value={boardId}
-            onChange={event => setBoardId(event.target.value)}
+            name="department"
+            value={department}
+            onChange={event => setDepartment(event.target.value)}
             disabled={isEditing}
             className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] disabled:cursor-not-allowed disabled:text-[var(--stone-500)]"
             style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
           >
-            <option value="">{UNASSIGNED_WORK_REPORT_BOARD_LABEL}</option>
-            {boards.map(board => (
-              <option key={board.id} value={board.id}>{board.name}</option>
+            <option value="">{UNASSIGNED_WORK_REPORT_DEPARTMENT_LABEL}</option>
+            {departmentOptions.map(departmentName => (
+              <option key={departmentName} value={departmentName}>{departmentName}</option>
             ))}
           </select>
         </label>

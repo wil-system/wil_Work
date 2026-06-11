@@ -32,6 +32,7 @@ function toReport(row: Record<string, unknown>): WorkReport {
     id: row.id as string,
     authorId: row.author_id as string,
     boardId: row.board_id as string | undefined,
+    department: row.department as string | undefined,
     date,
     periodStart: (row.period_start as string | undefined) ?? date,
     periodEnd: (row.period_end as string | undefined) ?? date,
@@ -75,6 +76,7 @@ export interface ReportPage {
 export interface PeriodReportInput {
   authorId: string;
   boardId?: string;
+  department?: string;
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
@@ -227,12 +229,18 @@ async function getReportsByIds(reportIds: string[]): Promise<WorkReport[]> {
 
 export async function getPreviousReport(
   authorId: string,
-  boardId: string | undefined,
+  department: string | undefined,
   periodStart: string,
 ): Promise<WorkReport | null> {
+  const normalizedDepartment = department?.trim() ?? '';
+
   if (isDemoMode()) {
     return demoReports
-      .filter(report => report.authorId === authorId && report.boardId === boardId && report.periodStart < periodStart)
+      .filter(report =>
+        report.authorId === authorId &&
+        (report.department?.trim() ?? '') === normalizedDepartment &&
+        report.periodStart < periodStart
+      )
       .sort((a, b) => b.periodStart.localeCompare(a.periodStart))
       [0] ?? null;
   }
@@ -247,7 +255,7 @@ export async function getPreviousReport(
     .order('created_at', { ascending: false })
     .limit(1);
 
-  query = boardId ? query.eq('board_id', boardId) : query.is('board_id', null);
+  query = query.eq('department', normalizedDepartment);
 
   const { data, error } = await query.maybeSingle();
 
@@ -257,7 +265,7 @@ export async function getPreviousReport(
 
 export async function savePeriodReport(report: PeriodReportInput & { reportId?: string }): Promise<string> {
   if (isDemoMode()) {
-    const previousReport = await getPreviousReport(report.authorId, report.boardId, report.periodStart);
+    const previousReport = await getPreviousReport(report.authorId, report.department, report.periodStart);
     const existingIndex = report.reportId
       ? demoReports.findIndex(item => item.id === report.reportId && item.authorId === report.authorId)
       : -1;
@@ -274,6 +282,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
       id,
       authorId: report.authorId,
       boardId: report.boardId,
+      department: report.department ?? '',
       date: report.periodStart,
       periodStart: report.periodStart,
       periodEnd: report.periodEnd,
@@ -299,7 +308,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
   }
 
   const supabase = await createClient();
-  const previousReport = await getPreviousReport(report.authorId, report.boardId, report.periodStart);
+  const previousReport = await getPreviousReport(report.authorId, report.department, report.periodStart);
   let previousReportId = previousReport?.id ?? null;
 
   if (report.reportId) {
@@ -322,6 +331,7 @@ export async function savePeriodReport(report: PeriodReportInput & { reportId?: 
   const payload = {
     author_id: report.authorId,
     board_id: report.boardId ?? null,
+    department: report.department ?? '',
     date: report.periodStart,
     period_start: report.periodStart,
     period_end: report.periodEnd,

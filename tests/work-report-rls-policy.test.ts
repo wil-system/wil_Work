@@ -54,3 +54,13 @@ test('work report insert policy allows null-board reports while still blocking n
   assert.equal(schemaPolicy.includes("board_id not in ('feed', 'notice')"), false);
   assert.match(migrationPolicy, /board_id\s+is\s+null/);
 });
+
+test('work report schema stores selected department separately from board id', () => {
+  const schema = read('supabase/schema.sql');
+  const migration = read('supabase/migrations/20260611100000_work_report_departments.sql');
+
+  assert.match(schema, /department\s+text\s+not\s+null\s+default\s+''/);
+  assert.match(migration, /add column if not exists department text not null default ''/);
+  assert.match(migration, /report\.department/);
+  assert.match(migration, /부서 미지정/);
+});
