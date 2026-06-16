@@ -15,6 +15,7 @@ import {
   loadFeedPostsFromDate,
   loadOlderFeedPosts,
 } from '@/app/(workspace)/feed/actions';
+import { getClientErrorMessage } from '@/lib/client-error-message';
 import { createClient } from '@/lib/supabase/client';
 import { renderRichText } from '@/lib/rich-text';
 import type { BoardRole, FeedDateCount, Post, Attachment } from '@/lib/types';
@@ -1213,17 +1214,29 @@ export default function ChatFeed({
     const uploadedPaths: string[] = [];
     const supabase = createClient();
     try {
+      const postInsert: {
+        board_id: string;
+        author_id: string;
+        content: string;
+        work_status?: WorkStatus;
+        assignee_id?: string;
+        is_pinned?: boolean;
+      } = {
+        board_id: boardId,
+        author_id: currentUserId,
+        content: message.trim() || '(첨부파일)',
+      };
+
+      if (isBusiness && taskMode) {
+        postInsert.work_status = 'in_progress';
+        postInsert.is_pinned = true;
+        if (taskAssigneeId) postInsert.assignee_id = taskAssigneeId;
+      }
+
       // Insert post
       const { data: postData, error: postError } = await supabase
         .from('work_posts')
-        .insert({
-          board_id: boardId,
-          author_id: currentUserId,
-          content: message.trim() || '(첨부파일)',
-          work_status: isBusiness && taskMode ? 'in_progress' : null,
-          assignee_id: isBusiness && taskMode && taskAssigneeId ? taskAssigneeId : null,
-          is_pinned: isBusiness && taskMode,
-        })
+        .insert(postInsert)
         .select('id, created_at')
         .single();
 
@@ -1298,7 +1311,7 @@ export default function ChatFeed({
       if (createdPostId) {
         await supabase.from('work_posts').delete().eq('id', createdPostId);
       }
-      const message = err instanceof Error ? err.message : '알 수 없는 오류';
+      const message = getClientErrorMessage(err);
       setError(`메시지 저장 중 오류가 발생했습니다. ${message}`);
     } finally {
       setSending(false);

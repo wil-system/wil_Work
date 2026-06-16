@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { File, FileSpreadsheet, FileText, Image as ImageIcon, Paperclip, Send, X } from 'lucide-react';
 import { Avatar } from './ui/avatar';
+import { getClientErrorMessage } from '@/lib/client-error-message';
 import { createClient } from '@/lib/supabase/client';
 import type { Attachment } from '@/lib/types';
 
@@ -130,7 +131,7 @@ export default function Composer({ boardId, authorId, authorInitial = '?', autho
       if (createdPostId) {
         await supabase.from('work_posts').delete().eq('id', createdPostId);
       }
-      const message = err instanceof Error ? err.message : '알 수 없는 오류';
+      const message = getClientErrorMessage(err);
       setError(`게시글 저장 중 오류가 발생했습니다. ${message}`);
     } finally {
       setSubmitting(false);
