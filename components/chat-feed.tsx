@@ -4,7 +4,7 @@ import {
   Send, Pin, FileSpreadsheet, FileText, Image as ImageIcon,
   File, MessageSquare, ChevronDown, Paperclip, X as XIcon,
   CalendarDays, ChevronLeft, ChevronRight,
-  ChevronsDown, Check, Edit3, Trash2, PanelRightOpen,
+  ChevronsDown, Check, Edit3, Trash2, PanelRightOpen, Hash,
 } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import { Badge } from './ui/badge';
@@ -15,6 +15,13 @@ import {
   loadFeedPostsFromDate,
   loadOlderFeedPosts,
 } from '@/app/(workspace)/feed/actions';
+import {
+  extractHashtags,
+  getActiveComposerToken,
+  insertComposerToken,
+  type ComposerToken,
+  type ComposerTokenTrigger,
+} from '@/lib/chat-composer-tokens';
 import { getClientErrorMessage } from '@/lib/client-error-message';
 import { createClient } from '@/lib/supabase/client';
 import { renderRichText } from '@/lib/rich-text';
@@ -22,7 +29,14 @@ import type { BoardRole, FeedDateCount, Post, Attachment } from '@/lib/types';
 import type { WorkStatus } from '@/lib/types';
 
 type ProfileInfo = { name: string; position: string; role: string; avatarInitial: string; avatarColor: string };
-type MentionOption = ProfileInfo & { id: string };
+type ComposerOption = {
+  trigger: ComposerTokenTrigger;
+  id: string;
+  label: string;
+  description?: string;
+  initial?: string;
+  color?: string;
+};
 
 interface ChatFeedProps {
   boardId?: string;
@@ -164,19 +178,6 @@ function updateDateCount(counts: FeedDateCount[], date: string, delta: 1 | -1) {
   return next.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function getActiveMentionToken(value: string, cursor: number) {
-  const beforeCursor = value.slice(0, cursor);
-  const match = beforeCursor.match(/(^|\s)@([^\s@#]*)$/);
-  if (!match) return null;
-
-  const query = match[2] ?? '';
-  return {
-    query,
-    start: cursor - query.length - 1,
-    end: cursor,
-  };
-}
-
 // ── Thread (답글) Panel ─────────────────────────────────────────────────────
 
 function ThreadPanel({
@@ -307,7 +308,7 @@ function ThreadPanel({
                   style={{ borderColor: 'var(--line)', background: 'white', color: 'var(--foreground)' }}
                 />
               ) : (
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--stone-700)' }}>{c.content}</p>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--stone-700)' }}>{renderRichText(c.content)}</p>
               )}
             </div>
           </div>
@@ -863,7 +864,7 @@ export default function ChatFeed({
   const [message, setMessage] = useState('');
   const [taskMode, setTaskMode] = useState(false);
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
-  const [mentionToken, setMentionToken] = useState<{ query: string; start: number; end: number } | null>(null);
+  const [mentionToken, setMentionToken] = useState<ComposerToken | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [sending, setSending] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -876,16 +877,46 @@ export default function ChatFeed({
     const sorted = sortPostsAscending(initialPosts);
     return sorted.length > 0 ? getPostDateKey(sorted[sorted.length - 1]) : null;
   });
-  const mentionOptions = Object.entries(profiles)
-    .filter(([id]) => id !== currentUserId)
-    .map(([id, profile]) => ({ ...profile, id }))
-    .filter(profile => (
-      !mentionToken?.query ||
-      profile.name.toLowerCase().includes(mentionToken.query.toLowerCase()) ||
-      profile.position.toLowerCase().includes(mentionToken.query.toLowerCase())
-    ))
-    .slice(0, 8);
-  const showMentionOptions = Boolean(mentionToken && mentionOptions.length > 0);
+  const mentionOptions: ComposerOption[] = mentionToken?.trigger === '@'
+    ? Object.entries(profiles)
+      .filter(([id]) => id !== currentUserId)
+      .map(([id, profile]) => ({ ...profile, id }))
+      .filter(profile => (
+        !mentionToken.query ||
+        profile.name.toLowerCase().includes(mentionToken.query.toLowerCase()) ||
+        profile.position.toLowerCase().includes(mentionToken.query.toLowerCase())
+      ))
+      .map(profile => ({
+        trigger: '@' as const,
+        id: profile.id,
+        label: profile.name,
+        description: profile.position || '직책 없음',
+        initial: profile.avatarInitial,
+        color: profile.avatarColor,
+      }))
+      .slice(0, 8)
+    : [];
+  const existingHashtags = extractHashtags([
+    ...posts.map(post => post.content),
+    ...pinnedPosts.map(post => post.content),
+  ]);
+  const tagOptions: ComposerOption[] = mentionToken?.trigger === '#'
+    ? [
+      ...existingHashtags.filter(tag => !mentionToken.query || tag.toLowerCase().includes(mentionToken.query.toLowerCase())),
+      ...(mentionToken.query.trim() && !existingHashtags.some(tag => tag.toLowerCase() === mentionToken.query.trim().toLowerCase())
+        ? [mentionToken.query.trim()]
+        : []),
+    ]
+      .slice(0, 8)
+      .map(tag => ({
+        trigger: '#' as const,
+        id: tag,
+        label: tag,
+        description: '태그',
+      }))
+    : [];
+  const composerOptions = mentionToken?.trigger === '@' ? mentionOptions : tagOptions;
+  const showMentionOptions = Boolean(mentionToken && composerOptions.length > 0);
   const assigneeOptions = Object.entries(profiles).map(([id, profile]) => ({ ...profile, id }));
   const isNotice = variant === 'notice';
   const isBusiness = variant === 'business';
@@ -1168,27 +1199,25 @@ export default function ChatFeed({
   }
 
   function updateMentionToken(value: string, cursor: number | null) {
-    const token = getActiveMentionToken(value, cursor ?? value.length);
+    const token = getActiveComposerToken(value, cursor ?? value.length);
     setMentionToken(token);
     setMentionIndex(0);
   }
 
-  function insertMention(profile: MentionOption) {
+  function insertComposerOption(option: ComposerOption) {
     const token = mentionToken;
-    if (!token) return;
+    if (!token || token.trigger !== option.trigger) return;
 
-    const replacement = `@${profile.name} `;
-    const next = `${message.slice(0, token.start)}${replacement}${message.slice(token.end)}`;
-    const nextCursor = token.start + replacement.length;
+    const nextToken = insertComposerToken(message, token, option.label);
 
-    setMessage(next);
+    setMessage(nextToken.value);
     setMentionToken(null);
     setMentionIndex(0);
     requestAnimationFrame(() => {
       const textarea = textareaRef.current;
       if (!textarea) return;
       textarea.focus();
-      textarea.setSelectionRange(nextCursor, nextCursor);
+      textarea.setSelectionRange(nextToken.cursor, nextToken.cursor);
       autoResize();
     });
   }
@@ -1499,16 +1528,18 @@ export default function ChatFeed({
                     className="absolute bottom-full left-0 z-50 mb-2 max-h-64 w-full overflow-y-auto rounded-lg border bg-white p-1 shadow-lg"
                     style={{ borderColor: 'var(--line)' }}
                     role="listbox"
-                    aria-label="멘션할 회원 선택"
+                    aria-label={mentionToken?.trigger === '@' ? '멘션할 회원 선택' : '태그 선택'}
                   >
-                    <div className="px-2 py-1 text-[10px] font-semibold text-[var(--stone-400)]">알림 대상</div>
-                    {mentionOptions.map((profile, index) => (
+                    <div className="px-2 py-1 text-[10px] font-semibold text-[var(--stone-400)]">
+                      {mentionToken?.trigger === '@' ? '알림 대상' : '태그'}
+                    </div>
+                    {composerOptions.map((option, index) => (
                       <button
-                        key={profile.id}
+                        key={`${option.trigger}-${option.id}`}
                         type="button"
                         onMouseDown={e => {
                           e.preventDefault();
-                          insertMention(profile);
+                          insertComposerOption(option);
                         }}
                         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                         style={{
@@ -1518,12 +1549,18 @@ export default function ChatFeed({
                         role="option"
                         aria-selected={index === mentionIndex}
                       >
-                        <Avatar initial={profile.avatarInitial} color={profile.avatarColor} size="sm" />
+                        {option.trigger === '@' ? (
+                          <Avatar initial={option.initial ?? '?'} color={option.color ?? '#94a3b8'} size="sm" />
+                        ) : (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--teal-50)] text-[var(--teal-700)]">
+                            <Hash size={13} />
+                          </span>
+                        )}
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12px] font-semibold">{profile.name}</span>
-                          <span className="block truncate text-[10px] text-[var(--stone-500)]">{profile.position || '직책 없음'}</span>
+                          <span className="block truncate text-[12px] font-semibold">{option.trigger}{option.label}</span>
+                          <span className="block truncate text-[10px] text-[var(--stone-500)]">{option.description}</span>
                         </span>
-                        <span className="text-[11px] font-semibold text-[var(--indigo-600)]">@{profile.name}</span>
+                        <span className="text-[11px] font-semibold text-[var(--indigo-600)]">{option.trigger}{option.label}</span>
                       </button>
                     ))}
                   </div>
@@ -1553,7 +1590,7 @@ export default function ChatFeed({
                       }
                       if (e.key === 'Enter' || e.key === 'Tab') {
                         e.preventDefault();
-                        insertMention(mentionOptions[mentionIndex] ?? mentionOptions[0]);
+                        insertComposerOption(composerOptions[mentionIndex] ?? composerOptions[0]);
                         return;
                       }
                       if (e.key === 'Escape') {

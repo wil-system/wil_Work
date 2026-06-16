@@ -291,7 +291,7 @@ export default function PostCard({ post, profiles = {}, currentUserId, currentUs
                       style={{ borderColor: 'var(--line)', background: 'white', color: 'var(--foreground)' }}
                     />
                   ) : (
-                    <p className="text-[12px] text-[var(--stone-700)]">{c.content}</p>
+                    <p className="text-[12px] text-[var(--stone-700)]">{renderRichText(c.content)}</p>
                   )}
                 </div>
               </div>
