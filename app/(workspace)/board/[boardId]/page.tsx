@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation';
+import { ExternalLink } from 'lucide-react';
 import Topbar from '@/components/topbar';
 import ChatFeed from '@/components/chat-feed';
 import { getAllBoards, getBoardPermissionRole } from '@/lib/db/boards';
 import { getBoardDateCounts, getBoardTaskPosts, getLatestBoardPosts, getPinnedBoardPosts } from '@/lib/db/posts';
 import { getCurrentProfile, getAllProfiles } from '@/lib/db/profiles';
 import { getUnreadNotificationCount } from '@/lib/db/notifications';
+import { OPERATIONS_TOOL_URL, shouldShowOperationsToolLink } from '@/lib/board-operations-link';
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   const { boardId } = await params;
@@ -24,6 +26,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
 
   const profileMap = Object.fromEntries(allProfiles.map(p => [p.id, p]));
   const currentBoardRole = user?.role === 'admin' ? 'leader' : await getBoardPermissionRole(user!.id, boardId);
+  const showOperationsToolLink = shouldShowOperationsToolLink(board);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -33,6 +36,22 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
         currentUser={user!}
         unreadCount={unreadCount}
       />
+      {showOperationsToolLink && (
+        <div className="flex-shrink-0 border-b bg-white px-3 py-2 sm:px-6" style={{ borderColor: 'var(--line)' }}>
+          <div className="flex justify-end">
+            <a
+              href={OPERATIONS_TOOL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--indigo-600)' }}
+            >
+              <ExternalLink size={14} />
+              운영툴 이동
+            </a>
+          </div>
+        </div>
+      )}
       <div className="min-h-0 flex-1">
         <ChatFeed
           key={feedPage.posts.map(post => post.id).join(':')}
