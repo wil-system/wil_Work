@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Bell, ChevronRight, Menu } from 'lucide-react';
 import { Avatar } from './ui/avatar';
 import type { Profile } from '@/lib/types';
@@ -11,9 +12,10 @@ interface TopbarProps {
   breadcrumb?: { label: string; href?: string }[];
   currentUser: Profile;
   unreadCount?: number;
+  actions?: ReactNode;
 }
 
-export default function Topbar({ title, subtitle, breadcrumb, currentUser, unreadCount = 0 }: TopbarProps) {
+export default function Topbar({ title, subtitle, breadcrumb, currentUser, unreadCount = 0, actions }: TopbarProps) {
   const { open, notificationSettings } = useSidebar();
   const showNotificationBadge = notificationSettings['알림 배지 표시'];
 
@@ -47,6 +49,12 @@ export default function Topbar({ title, subtitle, breadcrumb, currentUser, unrea
         <h1 className="text-[15px] font-bold truncate" style={{ color: 'var(--foreground)', lineHeight: '1.3' }}>{title}</h1>
         {subtitle && <p className="text-[11px]" style={{ color: 'var(--muted)' }}>{subtitle}</p>}
       </div>
+
+      {actions && (
+        <div className="flex flex-shrink-0 items-center">
+          {actions}
+        </div>
+      )}
 
       <Link
         href="/notifications"

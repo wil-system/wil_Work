@@ -35,23 +35,20 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
         breadcrumb={[{ label: '게시판' }, { label: board.name }]}
         currentUser={user!}
         unreadCount={unreadCount}
+        actions={showOperationsToolLink ? (
+          <a
+            href={OPERATIONS_TOOL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="운영툴 이동"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 sm:px-3"
+            style={{ background: 'var(--indigo-600)' }}
+          >
+            <ExternalLink size={14} />
+            <span className="hidden sm:inline">운영툴 이동</span>
+          </a>
+        ) : undefined}
       />
-      {showOperationsToolLink && (
-        <div className="flex-shrink-0 border-b bg-white px-3 py-2 sm:px-6" style={{ borderColor: 'var(--line)' }}>
-          <div className="flex justify-end">
-            <a
-              href={OPERATIONS_TOOL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--indigo-600)' }}
-            >
-              <ExternalLink size={14} />
-              운영툴 이동
-            </a>
-          </div>
-        </div>
-      )}
       <div className="min-h-0 flex-1">
         <ChatFeed
           key={feedPage.posts.map(post => post.id).join(':')}

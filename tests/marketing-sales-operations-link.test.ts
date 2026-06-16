@@ -17,7 +17,19 @@ test('board page renders the operations tool link from the marketing sales predi
 
   assert.match(boardPageSource, /shouldShowOperationsToolLink\(board\)/);
   assert.match(boardPageSource, /OPERATIONS_TOOL_URL/);
-  assert.match(boardPageSource, /운영툴 이동/);
+  assert.match(boardPageSource, /actions=\{showOperationsToolLink \? \(/);
   assert.match(boardPageSource, /target="_blank"/);
   assert.match(boardPageSource, /rel="noopener noreferrer"/);
+  assert.equal(boardPageSource.includes('flex-shrink-0 border-b bg-white px-3 py-2 sm:px-6'), false);
+});
+
+test('topbar renders custom actions immediately before the notification icon', () => {
+  const topbarSource = readFileSync(resolve('components/topbar.tsx'), 'utf8');
+
+  assert.match(topbarSource, /actions\?: ReactNode;/);
+  assert.match(topbarSource, /\{actions && \(/);
+  assert.ok(
+    topbarSource.indexOf('{actions && (') < topbarSource.indexOf('href="/notifications"'),
+    'custom topbar actions should render to the left of the notification link',
+  );
 });
