@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserPlus, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { registerUser } from './actions';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,34 +14,14 @@ export default function RegisterPage() {
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }));
 
-  async function handleRegister(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const supabase = createClient();
 
-    const avatarInitial = form.name.charAt(0).toUpperCase();
-    const colors = ['#1e1b4b','#0f766e','#b45309','#7c3aed','#be185d','#0369a1'];
-    const avatarColor = colors[Math.floor(Math.random() * colors.length)];
-
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          name: form.name,
-          department: form.department,
-          position: form.position,
-          avatar_initial: avatarInitial,
-          avatar_color: avatarColor,
-        },
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message === 'User already registered'
-        ? '이미 등록된 이메일입니다.'
-        : '가입 신청 중 오류가 발생했습니다.');
+    const result = await registerUser(new FormData(e.currentTarget));
+    if (!result.success) {
+      setError(result.error ?? '가입 신청 중 오류가 발생했습니다.');
       setLoading(false);
       return;
     }
@@ -63,32 +43,32 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">이름</label>
-                <input type="text" value={form.name} onChange={set('name')} placeholder="홍길동" required
+                <input name="name" type="text" value={form.name} onChange={set('name')} placeholder="홍길동" required
                   className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }} />
               </div>
               <div>
                 <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">부서</label>
-                <input type="text" value={form.department} onChange={set('department')} placeholder="영업팀" required
+                <input name="department" type="text" value={form.department} onChange={set('department')} placeholder="영업팀" required
                   className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }} />
               </div>
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">직책</label>
-              <input type="text" value={form.position} onChange={set('position')} placeholder="팀원" required
+              <input name="position" type="text" value={form.position} onChange={set('position')} placeholder="팀원" required
                 className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
                 style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }} />
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">이메일</label>
-              <input type="email" value={form.email} onChange={set('email')} placeholder="your@email.com" required
+              <input name="email" type="email" value={form.email} onChange={set('email')} placeholder="your@email.com" required
                 className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
                 style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }} />
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-[var(--stone-700)] mb-1.5">비밀번호</label>
-              <input type="password" value={form.password} onChange={set('password')} placeholder="8자 이상" required minLength={8}
+              <input name="password" type="password" value={form.password} onChange={set('password')} placeholder="8자 이상" required minLength={8}
                 className="w-full px-3 py-2.5 rounded-lg border text-[13px] outline-none focus:border-[var(--indigo-500)]"
                 style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }} />
             </div>
