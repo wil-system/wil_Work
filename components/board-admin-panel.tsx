@@ -7,6 +7,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { addBoard, removeBoard, saveBoardSettings } from '@/app/(workspace)/admin/boards/actions';
 import type { Board } from '@/lib/types';
+import { orderBoardsForSidebar } from '@/lib/board-order';
 
 interface BoardAdminPanelProps {
   boards: Board[];
@@ -15,11 +16,7 @@ interface BoardAdminPanelProps {
 export default function BoardAdminPanel({ boards }: BoardAdminPanelProps) {
   const router = useRouter();
   const menuBoards = useMemo(() => {
-    const editableBoards = boards.filter(board => board.id !== 'feed');
-    return [
-      ...editableBoards.filter(board => board.id === 'notice'),
-      ...editableBoards.filter(board => board.id !== 'notice'),
-    ];
+    return orderBoardsForSidebar(boards);
   }, [boards]);
   const [items, setItems] = useState(menuBoards);
   const [draggedId, setDraggedId] = useState<string | null>(null);

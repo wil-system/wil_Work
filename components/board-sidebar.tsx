@@ -11,6 +11,7 @@ import { Avatar } from './ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, Board } from '@/lib/types';
 import { useSidebar } from './sidebar-context';
+import { orderBoardsForSidebar } from '@/lib/board-order';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell, Dot,
@@ -48,6 +49,7 @@ export default function BoardSidebar({
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const { isOpen, close } = useSidebar();
+  const boardNavItems = orderBoardsForSidebar(boards);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
@@ -105,7 +107,7 @@ export default function BoardSidebar({
             <span>게시판</span>
             <ChevronDown size={11} className={`transition-transform duration-200 ${boardsOpen ? '' : '-rotate-90'}`} />
           </button>
-          {boardsOpen && boards.filter(b => b.id !== 'feed').map(board => {
+          {boardsOpen && boardNavItems.map(board => {
             const Icon = board.id === 'notice' ? Bell : (ICON_MAP[board.icon] ?? Dot);
             return (
               <NavItem

@@ -143,12 +143,12 @@ create table if not exists work_notification_settings (
 );
 
 -- ── Seed: default boards ──────────────────────────────────────
-insert into work_boards (id, name, description, icon, is_public) values
-  ('feed',      '전체 피드',  '모든 팀원의 소식을 확인하세요', 'LayoutDashboard', true),
-  ('sales',     '영업팀',    '영업팀 전용 게시판',            'TrendingUp',      false),
-  ('dev',       '개발팀',    '개발팀 이슈 및 공유',           'Code2',           false),
-  ('marketing', '마케팅',    '마케팅 캠페인 및 콘텐츠',       'Megaphone',       false),
-  ('notice',    '공지사항',  '전사 공지',                     'Bell',            true)
+insert into work_boards (id, name, description, icon, is_public, display_order) values
+  ('feed',      '전체 피드',  '모든 팀원의 소식을 확인하세요', 'LayoutDashboard', true, 0),
+  ('notice',    '공지사항',  '전사 공지',                     'Bell',            true, 1),
+  ('sales',     '영업팀',    '영업팀 전용 게시판',            'TrendingUp',      false, 2),
+  ('dev',       '개발팀',    '개발팀 이슈 및 공유',           'Code2',           false, 3),
+  ('marketing', '마케팅',    '마케팅 캠페인 및 콘텐츠',       'Megaphone',       false, 4)
 on conflict (id) do nothing;
 
 -- ── RLS: enable on all tables ─────────────────────────────────
