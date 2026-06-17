@@ -74,6 +74,11 @@ function demoPageResult(rows: Post[], limit: number): FeedPostPage {
   };
 }
 
+function nextDateKey(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
 export async function getLatestFeedPosts(limit = 20): Promise<FeedPostPage> {
   return getLatestBoardPosts('feed', limit);
 }
@@ -195,6 +200,52 @@ export async function getFeedPostsFromDate(
   limit = 20
 ): Promise<FeedPostPage> {
   return getBoardPostsFromDate('feed', date, afterCreatedAt, limit);
+}
+
+export async function getFeedPostsOnDate(
+  date: string,
+  afterCreatedAt?: string,
+  limit = 20
+): Promise<FeedPostPage> {
+  return getBoardPostsOnDate('feed', date, afterCreatedAt, limit);
+}
+
+export async function getBoardPostsOnDate(
+  boardId: string,
+  date: string,
+  afterCreatedAt?: string,
+  limit = 20
+): Promise<FeedPostPage> {
+  const endDate = nextDateKey(date);
+
+  if (isDemoMode()) {
+    const start = `${date}T00:00:00`;
+    const end = `${endDate}T00:00:00`;
+    const posts = (boardId === 'feed' ? mockPosts : mockPosts.filter(post => post.boardId === boardId))
+      .filter(post => post.createdAt >= start && post.createdAt < end)
+      .filter(post => !afterCreatedAt || post.createdAt > afterCreatedAt)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return demoPageResult(posts, limit);
+  }
+
+  const supabase = await createClient();
+  const start = `${date}T00:00:00+09:00`;
+  const end = `${endDate}T00:00:00+09:00`;
+  const query = supabase
+    .from('work_posts')
+    .select(FEED_SELECT)
+    .eq('board_id', boardId)
+    .gte('created_at', start)
+    .lt('created_at', end)
+    .order('created_at', { ascending: true })
+    .limit(limit + 1);
+
+  const { data, error } = afterCreatedAt
+    ? await query.gt('created_at', afterCreatedAt)
+    : await query;
+
+  if (error) throw error;
+  return pageResult(data, limit);
 }
 
 export async function getBoardPostsFromDate(

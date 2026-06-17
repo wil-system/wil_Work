@@ -16,3 +16,12 @@ export function getWorkReportBoards<T extends Pick<Board, 'id' | 'name'>>(boards
 export function getWorkReportBoardLabel(boardId?: string | null, board?: Pick<Board, 'name'>) {
   return boardId ? board?.name ?? boardId : UNASSIGNED_WORK_REPORT_BOARD_LABEL;
 }
+
+export function getWorkReportDepartmentLabel(
+  boardId?: string | null,
+  board?: Pick<Board, 'name'>,
+  author?: { department?: string | null },
+) {
+  if (boardId) return getWorkReportBoardLabel(boardId, board);
+  return author?.department?.trim() || UNASSIGNED_WORK_REPORT_BOARD_LABEL;
+}

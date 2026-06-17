@@ -2,6 +2,7 @@
 
 import {
   getBoardPostById,
+  getBoardPostsOnDate,
   getBoardPostsFromDate,
   getLatestBoardPosts,
   getOlderBoardPosts,
@@ -18,6 +19,10 @@ export async function loadOlderFeedPosts(beforeCreatedAt: string, boardId = 'fee
 
 export async function loadFeedPostsFromDate(date: string, afterCreatedAt?: string, boardId = 'feed'): Promise<FeedPostPage> {
   return getBoardPostsFromDate(boardId, date, afterCreatedAt, 20);
+}
+
+export async function loadFeedPostsOnDate(date: string, afterCreatedAt?: string, boardId = 'feed'): Promise<FeedPostPage> {
+  return getBoardPostsOnDate(boardId, date, afterCreatedAt, 20);
 }
 
 export async function loadFeedPostsAroundPost(postId: string, boardId = 'feed'): Promise<FeedPostPage> {

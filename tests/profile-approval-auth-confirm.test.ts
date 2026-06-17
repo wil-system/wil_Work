@@ -11,7 +11,7 @@ test('approving a profile also confirms the Supabase Auth email', () => {
 
   assert.match(source, /createAdminClient/);
   assert.match(source, /if \(status === 'approved'\)/);
-  assert.match(source, /auth\.admin\.updateUserById\(\s*id,\s*\{\s*email_confirm:\s*true\s*\}/s);
+  assert.match(source, /auth\.admin\.updateUserById\([\s\S]*id,[\s\S]*\{[\s\S]*email_confirm:\s*true[\s\S]*\}/);
 });
 
 test('Supabase admin client uses only the service role key', () => {

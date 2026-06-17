@@ -29,3 +29,17 @@ test('work report sidebar links close the mobile menu after selection', () => {
   assert.match(writeNav, /onSelect=\{close\}/);
   assert.match(reviewNav, /onSelect=\{close\}/);
 });
+
+test('my report history does not show a review shortcut banner', () => {
+  const writePageSource = readFileSync(resolve('app/(workspace)/work-report/page.tsx'), 'utf8');
+
+  assert.equal(writePageSource.includes('검토 항목으로 이동'), false);
+});
+
+test('sidebar brand opens the main feed', () => {
+  const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
+  const brandBlock = sidebarSource.match(/<Link\s+href="\/feed"[\s\S]*?W·I·L[\s\S]*?<\/Link>/)?.[0] ?? '';
+
+  assert.notEqual(brandBlock, '');
+  assert.match(brandBlock, /onClick=\{close\}/);
+});

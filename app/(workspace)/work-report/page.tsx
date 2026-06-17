@@ -10,7 +10,7 @@ import { getUnreadNotificationCount } from '@/lib/db/notifications';
 import { getMyReportHistoryPage, getReportById } from '@/lib/db/reports';
 import { getTotalPages, parsePageParam } from '@/lib/pagination';
 import { canReviseWorkReport, getReportRecipientProfiles } from '@/lib/report-review-permissions';
-import { getWorkReportBoardLabel } from '@/lib/work-report-boards';
+import { getWorkReportDepartmentLabel } from '@/lib/work-report-boards';
 import type { ReportReviewStatus, WorkReport } from '@/lib/types';
 import WorkReportForm from '@/components/work-report-form';
 
@@ -210,17 +210,6 @@ export default async function WorkReportPage({
               </div>
             </div>
 
-            {canReview && (
-              <Link
-                href="/work-report/review"
-                className="mb-4 flex items-center justify-between rounded-lg border bg-white px-4 py-3 text-[12px] font-semibold text-[var(--stone-700)] transition-colors hover:bg-[var(--stone-50)]"
-                style={{ borderColor: 'var(--line)' }}
-              >
-                <span>검토 항목으로 이동</span>
-                <ClipboardCheck size={15} className="text-[var(--indigo-500)]" />
-              </Link>
-            )}
-
             {historyPage.total === 0 ? (
               <div className="rounded-lg border border-dashed px-4 py-10 text-center text-[13px] text-[var(--muted)]" style={{ borderColor: 'var(--line)' }}>
                 아직 작성한 보고가 없습니다.
@@ -230,7 +219,11 @@ export default async function WorkReportPage({
                 {selectedReport ? (
                   <ReportDetail
                     report={selectedReport}
-                    departmentName={getWorkReportBoardLabel(selectedReport.boardId, selectedReport.boardId ? boardMap[selectedReport.boardId] : undefined)}
+                    departmentName={getWorkReportDepartmentLabel(
+                      selectedReport.boardId,
+                      selectedReport.boardId ? boardMap[selectedReport.boardId] : undefined,
+                      profileMap[selectedReport.authorId] ?? user,
+                    )}
                     reviewerName={selectedReport.reviewerId ? profileMap[selectedReport.reviewerId]?.name : undefined}
                     closeHref={buildPaginationHref('/work-report', historyParams, { report: undefined })}
                   />
@@ -263,7 +256,13 @@ export default async function WorkReportPage({
                               {report.periodStart.replace(/-/g, '.')} - {report.periodEnd.replace(/-/g, '.')}
                             </div>
                           </div>
-                          <span className="text-[11px] text-[var(--stone-600)]">{getWorkReportBoardLabel(report.boardId, report.boardId ? boardMap[report.boardId] : undefined)}</span>
+                          <span className="text-[11px] text-[var(--stone-600)]">
+                            {getWorkReportDepartmentLabel(
+                              report.boardId,
+                              report.boardId ? boardMap[report.boardId] : undefined,
+                              profileMap[report.authorId] ?? user,
+                            )}
+                          </span>
                           <Badge variant={REVIEW_VARIANT[report.reviewStatus]}>{REVIEW_LABEL[report.reviewStatus]}</Badge>
                         </Link>
                       );

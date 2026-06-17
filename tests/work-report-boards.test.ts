@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  getWorkReportDepartmentLabel,
   getWorkReportBoardLabel,
   getWorkReportBoards,
   UNASSIGNED_WORK_REPORT_BOARD_LABEL,
@@ -39,4 +40,11 @@ test('labels reports without a board as unassigned', () => {
   assert.equal(getWorkReportBoardLabel(undefined), UNASSIGNED_WORK_REPORT_BOARD_LABEL);
   assert.equal(getWorkReportBoardLabel(null), UNASSIGNED_WORK_REPORT_BOARD_LABEL);
   assert.equal(getWorkReportBoardLabel('sales', board('sales', '영업팀')), '영업팀');
+});
+
+test('uses the author department when a work report has no board', () => {
+  assert.equal(getWorkReportDepartmentLabel(undefined, undefined, { department: '영업팀' }), '영업팀');
+  assert.equal(getWorkReportDepartmentLabel(null, undefined, { department: '  개발팀  ' }), '개발팀');
+  assert.equal(getWorkReportDepartmentLabel(undefined, undefined, { department: '' }), UNASSIGNED_WORK_REPORT_BOARD_LABEL);
+  assert.equal(getWorkReportDepartmentLabel('sales', board('sales', '영업팀'), { department: '개발팀' }), '영업팀');
 });

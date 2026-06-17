@@ -72,16 +72,18 @@ test('allows a selected recipient to review a delivered report', () => {
   }), false);
 });
 
-test('builds report recipient options from approved users excluding the author', () => {
+test('builds report recipient options from approved leaders and senior positions excluding the author', () => {
   const recipients = getReportRecipientProfiles({
     currentUserId: 'member-1',
     profiles: [
       ...profiles,
+      { id: 'dept-head-1', name: '부장1', email: 'dept-head@example.com', role: 'member', status: 'approved', department: '영업', position: '부장', avatarInitial: '부', avatarColor: '#000', joinedAt: '2026-01-01' },
+      { id: 'director-1', name: '이사1', email: 'director@example.com', role: 'member', status: 'approved', department: '경영', position: '이사', avatarInitial: '이', avatarColor: '#000', joinedAt: '2026-01-01' },
       { id: 'pending-1', name: '대기자', email: 'pending@example.com', role: 'member', status: 'pending', department: '영업', position: '대기', avatarInitial: '대', avatarColor: '#000', joinedAt: '2026-01-01' },
     ],
   });
 
-  assert.deepEqual(recipients.map(recipient => recipient.id), ['admin-1', 'leader-1', 'leader-2']);
+  assert.deepEqual(recipients.map(recipient => recipient.id), ['director-1', 'dept-head-1', 'leader-1', 'leader-2']);
 });
 
 test('allows review decisions only for reports waiting for review', () => {

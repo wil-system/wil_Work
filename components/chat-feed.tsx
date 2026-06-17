@@ -13,6 +13,7 @@ import {
   loadFeedPostById,
   loadFeedPostsAroundPost,
   loadFeedPostsFromDate,
+  loadFeedPostsOnDate,
   loadOlderFeedPosts,
 } from '@/app/(workspace)/feed/actions';
 import {
@@ -806,7 +807,7 @@ function FeedCalendarPanel({
                   color: day.inMonth ? 'var(--stone-700)' : 'var(--stone-300)',
                   boxShadow: isHighlighted ? 'inset 0 0 0 1px var(--stone-500)' : undefined,
                 }}
-                aria-label={`${day.key}부터 보기, 글 ${count}개`}
+                aria-label={`${day.key} 보기, 글 ${count}개`}
               >
                 <span className="leading-none">{day.day}</span>
                 {count > 0 && (
@@ -894,7 +895,6 @@ export default function ChatFeed({
         initial: profile.avatarInitial,
         color: profile.avatarColor,
       }))
-      .slice(0, 8)
     : [];
   const existingHashtags = extractHashtags([
     ...posts.map(post => post.content),
@@ -1030,7 +1030,7 @@ export default function ChatFeed({
 
     setLoadingMore(true);
     try {
-      const page = await loadFeedPostsFromDate(anchorDate, posts[posts.length - 1].createdAt, boardId);
+      const page = await loadFeedPostsOnDate(anchorDate, posts[posts.length - 1].createdAt, boardId);
       setPosts(prev => {
         const existing = new Set(prev.map(post => post.id));
         return sortPostsAscending([...prev, ...page.posts.filter(post => !existing.has(post.id))]);
@@ -1087,7 +1087,7 @@ export default function ChatFeed({
     setLoadingMore(true);
     setError('');
     try {
-      const page = await loadFeedPostsFromDate(date, undefined, boardId);
+      const page = await loadFeedPostsOnDate(date, undefined, boardId);
       setPosts(sortPostsAscending(page.posts));
       setHasMoreAfterDate(page.hasMore);
       setHasMoreOlder(calendarDateCounts.some(row => row.date < date));
@@ -1435,7 +1435,7 @@ export default function ChatFeed({
                 <MessageSquare size={24} style={{ color: 'var(--indigo-500)' }} />
               </div>
               <p className="text-[15px] font-semibold" style={{ color: 'var(--foreground)' }}>
-                {anchorDate ? '해당 날짜 이후의 메시지가 없습니다' : '아직 메시지가 없습니다'}
+                {anchorDate ? '해당 날짜에 메시지가 없습니다' : '아직 메시지가 없습니다'}
               </p>
               <p className="text-[12px] mt-1" style={{ color: 'var(--muted)' }}>
                 {anchorDate ? '오른쪽 캘린더에서 다른 날짜를 선택하세요' : '첫 메시지를 입력해 대화를 시작해보세요'}
@@ -1580,12 +1580,12 @@ export default function ChatFeed({
                     if (showMentionOptions) {
                       if (e.key === 'ArrowDown') {
                         e.preventDefault();
-                        setMentionIndex(index => (index + 1) % mentionOptions.length);
+                        setMentionIndex(index => (index + 1) % composerOptions.length);
                         return;
                       }
                       if (e.key === 'ArrowUp') {
                         e.preventDefault();
-                        setMentionIndex(index => (index - 1 + mentionOptions.length) % mentionOptions.length);
+                        setMentionIndex(index => (index - 1 + composerOptions.length) % composerOptions.length);
                         return;
                       }
                       if (e.key === 'Enter' || e.key === 'Tab') {

@@ -80,10 +80,10 @@ export default function BoardSidebar({
           className="absolute -top-6 -left-6 w-28 h-28 rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)' }}
         />
-        <div className="relative">
+        <Link href="/feed" onClick={close} className="relative block">
           <div className="text-[14px] font-black tracking-[2px] gradient-text">W·I·L</div>
           <div className="text-[10px] mt-0.5 tracking-widest font-semibold" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
-        </div>
+        </Link>
         <button
           onClick={close}
           className="absolute top-4 right-3 p-1.5 rounded-lg md:hidden"
