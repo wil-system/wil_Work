@@ -55,3 +55,51 @@ export async function markAllRead(): Promise<void> {
     .update({ is_read: true })
     .eq('profile_id', user.id);
 }
+
+export async function markNotificationRead(notificationId: string): Promise<Notification | null> {
+  if (!notificationId) return null;
+
+  if (isDemoMode()) {
+    const notification = mockNotifications.find(item => item.id === notificationId) ?? null;
+    if (notification) notification.isRead = true;
+    return notification;
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('work_notifications')
+    .update({ is_read: true })
+    .eq('profile_id', user.id)
+    .eq('id', notificationId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? toNotification(data) : null;
+}
+
+export async function deleteReadNotifications(): Promise<void> {
+  if (isDemoMode()) {
+    for (let index = mockNotifications.length - 1; index >= 0; index -= 1) {
+      if (mockNotifications[index].isRead) {
+        mockNotifications.splice(index, 1);
+      }
+    }
+    return;
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase
+    .from('work_notifications')
+    .delete()
+    .eq('profile_id', user.id)
+    .eq('is_read', true);
+
+  if (error) throw error;
+}

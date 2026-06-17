@@ -717,6 +717,11 @@ create policy "Users can update own notifications"
   on work_notifications for update
   using (profile_id = auth.uid());
 
+drop policy if exists "Users can delete own read notifications" on work_notifications;
+create policy "Users can delete own read notifications"
+  on work_notifications for delete
+  using (profile_id = auth.uid() and is_read = true);
+
 drop policy if exists "Users can read own notification settings" on work_notification_settings;
 create policy "Users can read own notification settings"
   on work_notification_settings for select

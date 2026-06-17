@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import Link from 'next/link';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, UserCheck, LayoutDashboard, FileText, Bell } from 'lucide-react';
-import { getMyNotifications, markAllRead } from '@/lib/db/notifications';
+import { getMyNotifications, markAllRead, markNotificationRead, deleteReadNotifications } from '@/lib/db/notifications';
 import { getCurrentProfile } from '@/lib/db/profiles';
 import type { Notification } from '@/lib/types';
 
@@ -28,29 +27,37 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-function NotifItem({ n }: { n: Notification }) {
+function NotifItem({
+  n,
+  openNotificationAction,
+}: {
+  n: Notification;
+  openNotificationAction: (formData: FormData) => Promise<void>;
+}) {
   const Icon = TYPE_ICON[n.type] ?? Bell;
-  const content = (
-    <div
-      className={`card p-4 flex items-start gap-3 ${n.link ? 'hover:bg-[var(--stone-50)] transition-colors' : ''} ${!n.isRead ? 'border-l-2' : ''}`}
-      style={!n.isRead ? { borderLeftColor: 'var(--indigo-500)' } : {}}
-    >
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--indigo-50)' }}>
-        <Icon size={14} className="text-[var(--indigo-500)]" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-[13px] font-semibold text-[var(--foreground)]">{n.title}</span>
-          <Badge variant={TYPE_VARIANT[n.type]}>{TYPE_LABEL[n.type]}</Badge>
-        </div>
-        <p className="text-[12px] text-[var(--stone-600)]">{n.body}</p>
-        <span className="text-[10px] text-[var(--stone-400)]">{timeAgo(n.createdAt)}</span>
-      </div>
-    </div>
+  return (
+    <form action={openNotificationAction} className="block">
+      <input type="hidden" name="notificationId" value={n.id} />
+      <button
+        type="submit"
+        className={`card p-4 flex w-full items-start gap-3 text-left hover:bg-[var(--stone-50)] transition-colors ${!n.isRead ? 'border-l-2' : ''}`}
+        aria-label={`${n.title} 알림 ${n.link ? '열기' : '읽음 처리'}`}
+        style={!n.isRead ? { borderLeftColor: 'var(--indigo-500)' } : {}}
+      >
+        <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--indigo-50)' }}>
+          <Icon size={14} className="text-[var(--indigo-500)]" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="flex items-center gap-2 mb-0.5">
+            <span className="text-[13px] font-semibold text-[var(--foreground)]">{n.title}</span>
+            <Badge variant={TYPE_VARIANT[n.type]}>{TYPE_LABEL[n.type]}</Badge>
+          </span>
+          <span className="block text-[12px] text-[var(--stone-600)]">{n.body}</span>
+          <span className="text-[10px] text-[var(--stone-400)]">{timeAgo(n.createdAt)}</span>
+        </span>
+      </button>
+    </form>
   );
-
-  if (!n.link) return content;
-  return <Link href={n.link}>{content}</Link>;
 }
 
 export default async function NotificationsPage() {
@@ -65,6 +72,20 @@ export default async function NotificationsPage() {
   async function markAllReadAction() {
     'use server';
     await markAllRead();
+    revalidatePath('/notifications');
+  }
+
+  async function openNotificationAction(formData: FormData) {
+    'use server';
+    const notificationId = String(formData.get('notificationId') ?? '');
+    const notification = await markNotificationRead(notificationId);
+    revalidatePath('/notifications');
+    if (notification?.link) redirect(notification.link);
+  }
+
+  async function deleteReadNotificationsAction() {
+    'use server';
+    await deleteReadNotifications();
     revalidatePath('/notifications');
   }
 
@@ -86,15 +107,22 @@ export default async function NotificationsPage() {
               </form>
             </div>
             <div className="space-y-2">
-              {unread.map(n => <NotifItem key={n.id} n={n} />)}
+              {unread.map(n => <NotifItem key={n.id} n={n} openNotificationAction={openNotificationAction} />)}
             </div>
           </div>
         )}
         {read.length > 0 && (
           <div>
-            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">읽음</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wide">읽음</div>
+              <form action={deleteReadNotificationsAction}>
+                <button type="submit" className="text-[11px] font-medium text-[var(--danger)] hover:underline transition-colors">
+                  읽은 알림 삭제
+                </button>
+              </form>
+            </div>
             <div className="space-y-2 opacity-60">
-              {read.map(n => <NotifItem key={n.id} n={n} />)}
+              {read.map(n => <NotifItem key={n.id} n={n} openNotificationAction={openNotificationAction} />)}
             </div>
           </div>
         )}
