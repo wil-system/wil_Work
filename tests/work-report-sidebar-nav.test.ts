@@ -36,6 +36,15 @@ test('my report history does not show a review shortcut banner', () => {
   assert.equal(writePageSource.includes('검토 항목으로 이동'), false);
 });
 
+test('work report write screen does not show a review items button', () => {
+  const writePageSource = readFileSync(resolve('app/(workspace)/work-report/page.tsx'), 'utf8');
+  const writeScreenBlock = writePageSource.match(/\{isWriting \? \([\s\S]*?\) : \(/)?.[0] ?? '';
+
+  assert.notEqual(writeScreenBlock, '');
+  assert.equal(writeScreenBlock.includes('href="/work-report/review"'), false);
+  assert.equal(writeScreenBlock.includes('ClipboardCheck'), false);
+});
+
 test('sidebar brand opens the main feed', () => {
   const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
   const brandBlock = sidebarSource.match(/<Link\s+href="\/feed"[\s\S]*?W·I·L[\s\S]*?<\/Link>/)?.[0] ?? '';

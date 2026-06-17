@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ClipboardCheck, History, PencilLine } from 'lucide-react';
+import { History, PencilLine } from 'lucide-react';
 import PaginationNav, { buildPaginationHref } from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +139,6 @@ export default async function WorkReportPage({
     selectedReportId ? getReportById(selectedReportId) : Promise.resolve(null),
   ]);
 
-  const canReview = true;
   const recipientOptions = getReportRecipientProfiles({ currentUserId: user.id, profiles: allProfiles });
 
   const boardMap = Object.fromEntries(boards.map(board => [board.id, board]));
@@ -178,16 +177,6 @@ export default async function WorkReportPage({
                 <History size={14} className="text-[var(--stone-500)]" />
                 내 보고 히스토리
               </Link>
-              {canReview && (
-                <Link
-                  href="/work-report/review"
-                  className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-[12px] font-semibold text-[var(--stone-700)] transition-colors hover:bg-[var(--stone-50)]"
-                  style={{ borderColor: 'var(--line)' }}
-                >
-                  <ClipboardCheck size={14} className="text-[var(--indigo-500)]" />
-                  검토 항목
-                </Link>
-              )}
             </div>
             <WorkReportForm recipients={recipientOptions} report={editableReport} />
           </div>
