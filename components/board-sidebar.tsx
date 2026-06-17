@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell,
-  FileText, Calendar, StickyNote, Settings, Shield, ChevronDown, LogOut, X,
+  FileText, Calendar, StickyNote, Shield, ChevronDown, LogOut, X,
   Users, Key, LayoutList, Dot,
 } from 'lucide-react';
 import { Avatar } from './ui/avatar';
@@ -183,9 +183,6 @@ export default function BoardSidebar({
       </div>
 
       <div className="p-3 space-y-0.5" style={{ borderTop: '1px solid var(--line)' }}>
-        <NavItem href="/notifications" icon={Bell} label="알림" active={isActive('/notifications')} onSelect={close} />
-        <NavItem href="/settings" icon={Settings} label="설정" active={isActive('/settings')} onSelect={close} />
-
         <button
           onClick={() => setShowSignOutConfirm(true)}
           data-sidebar-signout-trigger

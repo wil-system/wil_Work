@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Bell, ChevronRight, Menu } from 'lucide-react';
-import { Avatar } from './ui/avatar';
 import type { Profile } from '@/lib/types';
 import { useSidebar } from './sidebar-context';
 
@@ -15,7 +14,7 @@ interface TopbarProps {
   actions?: ReactNode;
 }
 
-export default function Topbar({ title, subtitle, breadcrumb, currentUser, unreadCount = 0, actions }: TopbarProps) {
+export default function Topbar({ title, subtitle, breadcrumb, unreadCount = 0, actions }: TopbarProps) {
   const { open, notificationSettings } = useSidebar();
   const showNotificationBadge = notificationSettings['알림 배지 표시'];
 
@@ -72,16 +71,6 @@ export default function Topbar({ title, subtitle, breadcrumb, currentUser, unrea
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </Link>
-
-      <Link href="/profile" className="flex items-center gap-2" style={{ transition: 'opacity 0.2s' }}
-        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '0.75')}
-        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
-      >
-        <Avatar initial={currentUser.avatarInitial} color={currentUser.avatarColor} size="sm" />
-        <span className="text-[12px] font-semibold hidden md:block" style={{ color: 'var(--stone-700)' }}>
-          {currentUser.name}
-        </span>
       </Link>
     </header>
   );

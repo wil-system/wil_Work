@@ -43,3 +43,12 @@ test('sidebar brand opens the main feed', () => {
   assert.notEqual(brandBlock, '');
   assert.match(brandBlock, /onClick=\{close\}/);
 });
+
+test('sidebar does not expose notification and settings menu links', () => {
+  const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
+
+  assert.equal(sidebarSource.includes('href="/notifications"'), false);
+  assert.equal(sidebarSource.includes('label="알림"'), false);
+  assert.equal(sidebarSource.includes('href="/settings"'), false);
+  assert.equal(sidebarSource.includes('label="설정"'), false);
+});

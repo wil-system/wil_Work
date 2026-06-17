@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import PaginationNav from '@/components/pagination-nav';
 import Topbar from '@/components/topbar';
@@ -298,18 +297,6 @@ export default async function WorkReportReviewPage({
               <div>
                 <h2 className="text-[14px] font-bold text-[var(--foreground)]">검토 항목</h2>
                 <p className="mt-1 text-[12px] text-[var(--muted)]">총 {total}건 · {normalizedPage}/{totalPages} 페이지</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {REVIEW_STATUSES.map(status => (
-                  <Link
-                    key={status}
-                    href={buildReviewHref(currentParams, { status: reviewStatus === status ? undefined : status, page: 1 })}
-                  >
-                    <Badge variant={reviewStatus === status ? REVIEW_VARIANT[status] : 'gray'}>
-                      {REVIEW_LABEL[status]}
-                    </Badge>
-                  </Link>
-                ))}
               </div>
             </div>
 

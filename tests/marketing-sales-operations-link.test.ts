@@ -33,3 +33,11 @@ test('topbar renders custom actions immediately before the notification icon', (
     'custom topbar actions should render to the left of the notification link',
   );
 });
+
+test('topbar keeps notifications but does not expose a profile edit link', () => {
+  const topbarSource = readFileSync(resolve('components/topbar.tsx'), 'utf8');
+
+  assert.match(topbarSource, /href="\/notifications"/);
+  assert.equal(topbarSource.includes('href="/profile"'), false);
+  assert.equal(topbarSource.includes('currentUser.name'), false);
+});
