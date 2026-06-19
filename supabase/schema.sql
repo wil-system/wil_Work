@@ -609,7 +609,6 @@ create policy "Authors can update own posts"
       board_id <> 'feed'
       and work_status is not null
       and assignee_id = auth.uid()
-      and not is_work_admin()
     )
   )
   with check (
@@ -618,7 +617,6 @@ create policy "Authors can update own posts"
       board_id <> 'feed'
       and work_status is not null
       and assignee_id = auth.uid()
-      and not is_work_admin()
     )
   );
 

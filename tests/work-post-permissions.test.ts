@@ -18,7 +18,7 @@ function policy(sql: string, name: string, operation: 'select' | 'insert' | 'upd
   return match[0];
 }
 
-test('work post RLS keeps edits author-only, assignee status-only, and admin delete-only', () => {
+test('work post RLS keeps edits author-only, assignee status-only including admins, and admin delete-only', () => {
   const schema = read('supabase/schema.sql');
   const updatePolicy = policy(schema, 'Authors can update own posts', 'update');
   const deletePolicy = policy(schema, 'Authors can delete own posts', 'delete');
@@ -26,15 +26,14 @@ test('work post RLS keeps edits author-only, assignee status-only, and admin del
   assert.match(updatePolicy, /author_id\s*=\s*auth\.uid\(\)/);
   assert.match(updatePolicy, /board_id\s*<>\s*'feed'/);
   assert.match(updatePolicy, /work_status\s+is\s+not\s+null[\s\S]*assignee_id\s*=\s*auth\.uid\(\)/i);
-  assert.match(updatePolicy, /assignee_id\s*=\s*auth\.uid\(\)[\s\S]*not\s+is_work_admin\(\)/i);
   assert.match(updatePolicy, /assignee_id\s*=\s*auth\.uid\(\)/);
   assert.equal(updatePolicy.includes('or is_work_admin()'), false);
   assert.match(updatePolicy, /with check[\s\S]*author_id\s*=\s*auth\.uid\(\)/i);
   assert.match(updatePolicy, /with check[\s\S]*board_id\s*<>\s*'feed'/i);
   assert.match(updatePolicy, /with check[\s\S]*work_status\s+is\s+not\s+null[\s\S]*assignee_id\s*=\s*auth\.uid\(\)/i);
   assert.match(updatePolicy, /with check[\s\S]*assignee_id\s*=\s*auth\.uid\(\)/i);
-  assert.match(updatePolicy, /with check[\s\S]*assignee_id\s*=\s*auth\.uid\(\)[\s\S]*not\s+is_work_admin\(\)/i);
   assert.equal(/with check[\s\S]*or is_work_admin\(\)/i.test(updatePolicy), false);
+  assert.equal(/not\s+is_work_admin\(\)/i.test(updatePolicy), false);
 
   assert.match(deletePolicy, /author_id\s*=\s*auth\.uid\(\)/);
   assert.match(deletePolicy, /is_work_admin\(\)/);
@@ -60,7 +59,7 @@ test('work post UI keeps edit and delete controls away from assignees', () => {
 
   assert.match(source, /const canEditPost = isMyMessage;/);
   assert.match(source, /const canDeletePost = isMyMessage \|\| currentUserProfile\.role === 'admin';/);
-  assert.match(source, /const canManageWorkStatus = canEditPost \|\| \(currentUserProfile\.role !== 'admin' && isTaskPost && post\.assigneeId === currentUserId\);/);
+  assert.match(source, /const canManageWorkStatus = canEditPost \|\| \(isTaskPost && post\.assigneeId === currentUserId\);/);
   assert.match(source, /\{canEditPost && \(/);
   assert.match(source, /\{!editingPost && canDeletePost && \(/);
   assert.match(source, /\{isBusiness && isTaskPost && canManageWorkStatus && \(/);

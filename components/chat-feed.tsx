@@ -384,7 +384,7 @@ function ChatMessage({
   const isTaskPost = isBusiness && Boolean(post.workStatus);
   const canEditPost = isMyMessage;
   const canDeletePost = isMyMessage || currentUserProfile.role === 'admin';
-  const canManageWorkStatus = canEditPost || (currentUserProfile.role !== 'admin' && isTaskPost && post.assigneeId === currentUserId);
+  const canManageWorkStatus = canEditPost || (isTaskPost && post.assigneeId === currentUserId);
   const taskCardStyle = isTaskPost ? WORK_STATUS_CARD_STYLE[post.workStatus!] : null;
   const assignee = post.assigneeId ? profiles[post.assigneeId] : null;
 
