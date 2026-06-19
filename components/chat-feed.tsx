@@ -1075,7 +1075,6 @@ export default function ChatFeed({
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    updateActiveDateFromScroll(el);
 
     if (anchorDate) {
       if (el.scrollTop < 120) {
@@ -1086,6 +1085,8 @@ export default function ChatFeed({
       }
       return;
     }
+
+    updateActiveDateFromScroll(el);
 
     if (el.scrollTop < 120) {
       void loadOlder();

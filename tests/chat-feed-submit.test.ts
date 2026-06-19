@@ -64,3 +64,15 @@ test('selected feed calendar date loads only that day', () => {
   assert.match(postsDb, /\.gte\('created_at', start\)/);
   assert.match(postsDb, /\.lt\('created_at', end\)/);
 });
+
+test('selected feed calendar date remains selected while older date markers are visible', () => {
+  const component = readFileSync('components/chat-feed.tsx', 'utf8');
+  const scrollStart = component.indexOf('function handleScroll');
+  const scrollEnd = component.indexOf('async function handleSelectDate');
+  const handleScroll = component.slice(scrollStart, scrollEnd);
+
+  assert.ok(scrollStart > -1, 'scroll handler should exist');
+  assert.ok(scrollEnd > scrollStart, 'date selection handler should follow scroll handler');
+  assert.match(handleScroll, /if \(anchorDate\) \{[\s\S]*return;[\s\S]*\}\s+updateActiveDateFromScroll\(el\);/);
+  assert.equal(/updateActiveDateFromScroll\(el\);[\s\S]*if \(anchorDate\)/.test(handleScroll), false);
+});
