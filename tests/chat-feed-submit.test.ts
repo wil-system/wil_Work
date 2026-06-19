@@ -65,7 +65,21 @@ test('selected feed calendar date loads only that day', () => {
   assert.match(postsDb, /\.lt\('created_at', end\)/);
 });
 
-test('selected feed calendar date remains selected while older date markers are visible', () => {
+test('feed calendar highlight follows the bottom visible date marker', () => {
+  const component = readFileSync('components/chat-feed.tsx', 'utf8');
+  const updateStart = component.indexOf('function updateActiveDateFromScroll');
+  const updateEnd = component.indexOf('function handleScroll');
+  const updateActiveDateFromScroll = component.slice(updateStart, updateEnd);
+
+  assert.ok(updateStart > -1, 'scroll date updater should exist');
+  assert.ok(updateEnd > updateStart, 'scroll handler should follow date updater');
+  assert.match(updateActiveDateFromScroll, /const containerRect = container\.getBoundingClientRect\(\);/);
+  assert.match(updateActiveDateFromScroll, /const anchor = containerRect\.bottom - 88;/);
+  assert.equal(updateActiveDateFromScroll.includes('containerTop + 88'), false);
+  assert.match(updateActiveDateFromScroll, /marker\.getBoundingClientRect\(\)\.top <= anchor/);
+});
+
+test('selected feed calendar date can change from scroll bottom while browsing a date window', () => {
   const component = readFileSync('components/chat-feed.tsx', 'utf8');
   const scrollStart = component.indexOf('function handleScroll');
   const scrollEnd = component.indexOf('async function handleSelectDate');
@@ -73,6 +87,5 @@ test('selected feed calendar date remains selected while older date markers are 
 
   assert.ok(scrollStart > -1, 'scroll handler should exist');
   assert.ok(scrollEnd > scrollStart, 'date selection handler should follow scroll handler');
-  assert.match(handleScroll, /if \(anchorDate\) \{[\s\S]*return;[\s\S]*\}\s+updateActiveDateFromScroll\(el\);/);
-  assert.equal(/updateActiveDateFromScroll\(el\);[\s\S]*if \(anchorDate\)/.test(handleScroll), false);
+  assert.match(handleScroll, /const el = e\.currentTarget;\s+updateActiveDateFromScroll\(el\);\s+if \(anchorDate\)/);
 });

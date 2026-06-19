@@ -1056,8 +1056,8 @@ export default function ChatFeed({
     const markers = Array.from(container.querySelectorAll<HTMLElement>('[data-feed-date]'));
     if (markers.length === 0) return;
 
-    const containerTop = container.getBoundingClientRect().top;
-    const anchor = containerTop + 88;
+    const containerRect = container.getBoundingClientRect();
+    const anchor = containerRect.bottom - 88;
     let nextDate = markers[0].dataset.feedDate ?? null;
 
     for (const marker of markers) {
@@ -1075,6 +1075,7 @@ export default function ChatFeed({
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
+    updateActiveDateFromScroll(el);
 
     if (anchorDate) {
       if (el.scrollTop < 120) {
@@ -1085,8 +1086,6 @@ export default function ChatFeed({
       }
       return;
     }
-
-    updateActiveDateFromScroll(el);
 
     if (el.scrollTop < 120) {
       void loadOlder();
