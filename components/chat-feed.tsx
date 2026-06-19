@@ -379,11 +379,12 @@ function ChatMessage({
     name: '알 수 없음', position: '', role: 'member', avatarInitial: '?', avatarColor: '#94a3b8',
   };
   const isMyMessage = post.authorId === currentUserId;
-  const canManagePost = isMyMessage || currentUserProfile.role === 'admin';
-  const canManageWorkStatus = canManagePost || post.assigneeId === currentUserId;
   const isNotice = variant === 'notice';
   const isBusiness = variant === 'business';
   const isTaskPost = isBusiness && Boolean(post.workStatus);
+  const canEditPost = isMyMessage;
+  const canDeletePost = isMyMessage || currentUserProfile.role === 'admin';
+  const canManageWorkStatus = canEditPost || (currentUserProfile.role !== 'admin' && isTaskPost && post.assigneeId === currentUserId);
   const taskCardStyle = isTaskPost ? WORK_STATUS_CARD_STYLE[post.workStatus!] : null;
   const assignee = post.assigneeId ? profiles[post.assigneeId] : null;
 
@@ -406,6 +407,8 @@ function ChatMessage({
   }, [threadOpen]);
 
   async function savePost() {
+    if (!canEditPost) return;
+
     const next = editingContent.trim();
     if (!next) return;
 
@@ -426,6 +429,8 @@ function ChatMessage({
   }
 
   async function deletePost() {
+    if (!canDeletePost) return;
+
     if (!window.confirm('글을 삭제하시겠습니까? 삭제된 글은 복구할 수 없습니다.')) return;
 
     const supabase = createClient();
@@ -438,6 +443,8 @@ function ChatMessage({
   }
 
   async function togglePin() {
+    if (!canEditPost) return;
+
     const nextPinned = !post.isPinned;
     const supabase = createClient();
     const { error } = await supabase
@@ -449,6 +456,8 @@ function ChatMessage({
   }
 
   async function updateWorkStatus(status: WorkStatus) {
+    if (!canManageWorkStatus) return;
+
     const nextPinned = nextPinnedForStatus(status);
     const supabase = createClient();
     const { error } = await supabase
@@ -515,7 +524,7 @@ function ChatMessage({
                   <option value="on_hold">보류</option>
                 </select>
               )}
-              {canManagePost && (
+              {canEditPost && (
                 <>
                   {editingPost ? (
                     <>
@@ -531,14 +540,16 @@ function ChatMessage({
                       <button type="button" onClick={() => setEditingPost(true)} className="p-1 rounded hover:bg-[var(--stone-100)]" aria-label="글 수정">
                         <Edit3 size={12} />
                       </button>
-                      <button type="button" onClick={() => void deletePost()} className="p-1 rounded hover:bg-[var(--stone-100)] text-[var(--danger)]" aria-label="글 삭제">
-                        <Trash2 size={12} />
-                      </button>
                     </>
                   )}
                 </>
               )}
-              {canManagePost ? (
+              {!editingPost && canDeletePost && (
+                <button type="button" onClick={() => void deletePost()} className="p-1 rounded hover:bg-[var(--stone-100)] text-[var(--danger)]" aria-label="글 삭제">
+                  <Trash2 size={12} />
+                </button>
+              )}
+              {canEditPost ? (
                 !isBusiness && (
                   <button
                   type="button"
