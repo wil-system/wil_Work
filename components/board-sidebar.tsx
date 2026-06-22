@@ -76,15 +76,38 @@ export default function BoardSidebar({
       className={`flex flex-col h-screen w-[220px] flex-shrink-0 select-none fixed md:static inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       style={{ background: 'var(--bg-sidebar)', boxShadow: 'var(--shadow-sidebar)' }}
     >
-      {/* Logo area with ambient gradient */}
+      {/* Logo area */}
       <div className="relative px-5 pt-5 pb-4 overflow-hidden">
-        <div
-          className="absolute -top-6 -left-6 w-28 h-28 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)' }}
-        />
         <Link href="/feed" onClick={close} className="relative block">
-          <div className="text-[14px] font-black tracking-[2px] gradient-text">W·I·L</div>
-          <div className="text-[10px] mt-0.5 tracking-widest font-semibold" style={{ color: 'var(--stone-400)' }}>WORKSPACE</div>
+          <div className="flex items-end gap-1.5 whitespace-nowrap">
+            <span
+              className="text-[15px] font-black leading-none"
+              style={{
+                color: 'color-mix(in srgb, var(--indigo-500) 62%, white)',
+              }}
+            >
+              SPACE
+            </span>
+            <span
+              className="text-[24px] font-black leading-[0.85]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(135deg, color-mix(in srgb, var(--indigo-500) 58%, white) 0%, color-mix(in srgb, var(--teal-700) 52%, white) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              W
+            </span>
+          </div>
+          <div
+            className="mt-2 h-[2px] w-16 rounded-full"
+            style={{
+              backgroundImage:
+                'linear-gradient(90deg, color-mix(in srgb, var(--indigo-500) 45%, white), color-mix(in srgb, var(--teal-700) 38%, white))',
+            }}
+          />
         </Link>
         <button
           onClick={close}
@@ -126,33 +149,23 @@ export default function BoardSidebar({
           <div className="px-3 py-1 text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'var(--stone-400)' }}>
             워크스페이스
           </div>
-          {(canWriteWorkReport || canReviewWorkReport) && (
-            <div>
-              <div className="mt-1 flex items-center gap-2.5 px-3 py-1 text-[11px] font-semibold" style={{ color: 'var(--stone-500)' }}>
-                <FileText size={13} style={{ color: 'var(--stone-400)' }} />
-                <span>업무게시판</span>
-              </div>
-              {canWriteWorkReport && (
-                <NavItem
-                  href="/work-report"
-                  icon={FileText}
-                  label="업무보고 작성"
-                  active={pathname === '/work-report'}
-                  nested
-                  onSelect={close}
-                />
-              )}
-              {canReviewWorkReport && (
-                <NavItem
-                  href="/work-report/review"
-                  icon={LayoutList}
-                  label="업무보고 검토"
-                  active={isActive('/work-report/review')}
-                  nested
-                  onSelect={close}
-                />
-              )}
-            </div>
+          {canWriteWorkReport && (
+            <NavItem
+              href="/work-report"
+              icon={FileText}
+              label="업무보고 작성"
+              active={pathname === '/work-report'}
+              onSelect={close}
+            />
+          )}
+          {canReviewWorkReport && (
+            <NavItem
+              href="/work-report/review"
+              icon={LayoutList}
+              label="업무보고 검토"
+              active={isActive('/work-report/review')}
+              onSelect={close}
+            />
           )}
           {WORKSPACE_NAV.map(item => (
             <NavItem key={item.href} href={item.href} icon={item.icon} label={item.label} active={isActive(item.href)} onSelect={close} />
