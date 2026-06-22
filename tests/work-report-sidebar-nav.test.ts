@@ -47,7 +47,7 @@ test('work report write screen does not show a review items button', () => {
 
 test('sidebar brand opens the main feed', () => {
   const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
-  const brandBlock = sidebarSource.match(/<Link\s+href="\/feed"[\s\S]*?W·I·L[\s\S]*?<\/Link>/)?.[0] ?? '';
+  const brandBlock = sidebarSource.match(/<Link\s+href="\/feed"[\s\S]*?SPACE[\s\S]*?>\s*W\s*<\/span>[\s\S]*?<\/Link>/)?.[0] ?? '';
 
   assert.notEqual(brandBlock, '');
   assert.match(brandBlock, /onClick=\{close\}/);

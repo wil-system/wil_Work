@@ -75,6 +75,7 @@ export async function updateTodoCompletion(
       .from('work_calendar_events')
       .select('description')
       .eq('id', id)
+      .eq('created_by', user.id)
       .single();
 
     if (fetchError || !data) {
@@ -92,7 +93,8 @@ export async function updateTodoCompletion(
     const { error: updateError } = await supabase
       .from('work_calendar_events')
       .update({ description: nextDescription })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('created_by', user.id);
 
     if (updateError) {
       console.error('updateTodoCompletion update failed', {

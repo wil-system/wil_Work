@@ -26,6 +26,7 @@ export default async function CalendarPage() {
           initialYear={year}
           initialMonth={month}
           initialEvents={events}
+          currentUserId={user.id}
         />
       </div>
     </div>

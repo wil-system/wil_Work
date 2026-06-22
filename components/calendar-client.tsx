@@ -119,6 +119,7 @@ interface CalendarClientProps {
   initialYear: number;
   initialMonth: number;
   initialEvents: CalendarEvent[];
+  currentUserId: string;
 }
 
 interface TaskPanelProps {
@@ -311,7 +312,7 @@ function TaskPanel({
   );
 }
 
-export default function CalendarClient({ initialYear, initialMonth, initialEvents }: CalendarClientProps) {
+export default function CalendarClient({ initialYear, initialMonth, initialEvents, currentUserId }: CalendarClientProps) {
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -334,6 +335,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
       .select('*')
       .gte('date', from)
       .lte('date', to)
+      .eq('created_by', currentUserId)
       .order('date');
     if (fetchError) {
       console.error('calendar fetch failed', {
@@ -348,7 +350,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
     }
     setEvents((data ?? []).map((r: Record<string, unknown>) => calendarEventFromRow(r)));
     setLoading(false);
-  }, []);
+  }, [currentUserId]);
 
   function moveMonth(nextYear: number, nextMonth: number) {
     const nextSelectedDate = toDateKey(new Date(nextYear, nextMonth, 1));

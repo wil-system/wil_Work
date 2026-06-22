@@ -18,11 +18,15 @@ export async function getMonthEvents(year: number, month: number): Promise<Calen
   }
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('work_calendar_events')
     .select('*')
     .gte('date', from)
     .lte('date', to)
+    .eq('created_by', user.id)
     .order('date');
   if (error) {
     console.error('getMonthEvents query failed', {
@@ -41,6 +45,9 @@ export async function createCalendarEvent(event: Omit<CalendarEvent, 'id'>): Pro
   if (isDemoMode()) return;
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Login required');
+
   const isTodo = event.type === 'todo';
   await supabase.from('work_calendar_events').insert({
     title: event.title,
@@ -50,5 +57,6 @@ export async function createCalendarEvent(event: Omit<CalendarEvent, 'id'>): Pro
     type: isTodo ? 'personal' : event.type,
     attendees: event.attendees,
     description: isTodo ? markTodoDescription(event.description ?? '') : event.description,
+    created_by: user.id,
   });
 }

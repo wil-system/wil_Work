@@ -105,7 +105,7 @@ create table if not exists work_calendar_events (
   type text not null default 'meeting' check (type in ('meeting', 'deadline', 'holiday', 'personal')),
   attendees uuid[] not null default '{}',
   description text,
-  created_by uuid references work_profiles(id) on delete set null,
+  created_by uuid default auth.uid() references work_profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -723,19 +723,26 @@ create policy "Users can update accessible reports"
 
 -- work_calendar_events
 drop policy if exists "Approved users can read all events" on work_calendar_events;
-create policy "Approved users can read all events"
+drop policy if exists "Users can read own events" on work_calendar_events;
+create policy "Users can read own events"
   on work_calendar_events for select
-  using (is_work_approved());
+  to authenticated
+  using (is_work_approved() and created_by = auth.uid());
 
 drop policy if exists "Approved users can insert events" on work_calendar_events;
-create policy "Approved users can insert events"
+drop policy if exists "Users can insert own events" on work_calendar_events;
+create policy "Users can insert own events"
   on work_calendar_events for insert
-  with check (is_work_approved());
+  to authenticated
+  with check (is_work_approved() and created_by = auth.uid());
 
 drop policy if exists "Creator or admin can update events" on work_calendar_events;
-create policy "Creator or admin can update events"
+drop policy if exists "Users can update own events" on work_calendar_events;
+create policy "Users can update own events"
   on work_calendar_events for update
-  using (created_by = auth.uid() or is_work_admin());
+  to authenticated
+  using (is_work_approved() and created_by = auth.uid())
+  with check (is_work_approved() and created_by = auth.uid());
 
 -- work_memos
 drop policy if exists "Users can read own memos" on work_memos;
