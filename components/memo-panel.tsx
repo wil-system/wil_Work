@@ -1,9 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Pin, Plus, Edit3, X, AlertCircle } from 'lucide-react';
+import { Pin, Plus, Edit3, X, AlertCircle, Trash2 } from 'lucide-react';
 import { Tag } from '@/components/ui/tag';
-import { saveMemo } from '@/app/(workspace)/memo/actions';
+import { saveMemo, deleteMemo } from '@/app/(workspace)/memo/actions';
 import type { Memo } from '@/lib/types';
 
 function MemoCard({ memo, onEdit }: { memo: Memo; onEdit: (memo: Memo) => void }) {
@@ -12,10 +12,12 @@ function MemoCard({ memo, onEdit }: { memo: Memo; onEdit: (memo: Memo) => void }
       <div className="flex items-start justify-between mb-2">
         <h3 className="text-[13px] font-bold text-[var(--foreground)]">{memo.title || '(제목 없음)'}</h3>
         <button
+          type="button"
           onClick={e => { e.stopPropagation(); onEdit(memo); }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--stone-100)] transition-all"
+          className="p-1 rounded text-[var(--muted)] opacity-100 transition-all hover:bg-[var(--stone-100)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover:opacity-100"
+          aria-label={`${memo.title || '제목 없는 메모'} 편집`}
         >
-          <Edit3 size={12} className="text-[var(--muted)]" />
+          <Edit3 size={12} />
         </button>
       </div>
       <p className="text-[12px] text-[var(--stone-600)] whitespace-pre-line line-clamp-4 mb-3">{memo.content}</p>
@@ -39,6 +41,7 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
   const router = useRouter();
   const [editing, setEditing] = useState<Memo | 'new' | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
@@ -56,6 +59,24 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
     }
   }
 
+  async function handleDelete() {
+    const editingMemo = editing !== null && editing !== 'new' ? editing : null;
+    if (!editingMemo) return;
+    const confirmed = window.confirm(`"${editingMemo.title || '제목 없는 메모'}" 메모를 삭제할까요?\n삭제된 메모는 복구할 수 없습니다.`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    const result = await deleteMemo(editingMemo.id);
+    setDeleting(false);
+    if (result.success) {
+      setEditing(null);
+      router.refresh();
+    } else {
+      setError(result.error ?? '삭제 중 오류가 발생했습니다.');
+    }
+  }
+
   const isNew = editing === 'new';
   const editingMemo = editing !== null && editing !== 'new' ? editing : null;
 
@@ -64,6 +85,7 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
       {/* New memo button */}
       <div className="flex justify-end mb-4">
         <button
+          type="button"
           onClick={() => setEditing('new')}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 transition-all"
           style={{ background: 'var(--indigo-600)' }}
@@ -108,7 +130,7 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
               <h2 className="text-[15px] font-bold text-[var(--foreground)]">
                 {isNew ? '새 메모' : '메모 편집'}
               </h2>
-              <button onClick={() => setEditing(null)} className="p-1.5 rounded-lg hover:bg-[var(--stone-100)]">
+              <button type="button" onClick={() => setEditing(null)} className="p-1.5 rounded-lg hover:bg-[var(--stone-100)]" aria-label="닫기">
                 <X size={16} className="text-[var(--muted)]" />
               </button>
             </div>
@@ -166,18 +188,30 @@ export default function MemoPanel({ pinned, rest, isEmpty }: MemoPanelProps) {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+                {editingMemo && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete()}
+                    disabled={submitting || deleting}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-[13px] font-semibold text-[var(--danger)] transition-colors hover:bg-[#fee2e2] disabled:opacity-60"
+                    style={{ borderColor: '#fecaca' }}
+                  >
+                    <Trash2 size={14} /> {deleting ? '삭제 중...' : '메모 삭제'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
-                  className="flex-1 py-2.5 rounded-lg text-[13px] font-medium border hover:bg-[var(--stone-50)] transition-colors"
+                  disabled={submitting || deleting}
+                  className="flex-1 py-2.5 rounded-lg text-[13px] font-medium border hover:bg-[var(--stone-50)] transition-colors disabled:opacity-60"
                   style={{ borderColor: 'var(--line)', color: 'var(--foreground)' }}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || deleting}
                   className="flex-1 py-2.5 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
                   style={{ background: 'var(--indigo-600)' }}
                 >

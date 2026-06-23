@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { createMemo, updateMemo } from '@/lib/db/memos';
+import { createMemo, deleteMemoById, updateMemo } from '@/lib/db/memos';
 import { getCurrentProfile } from '@/lib/db/profiles';
 import { createClient } from '@/lib/supabase/server';
 
@@ -35,5 +35,19 @@ export async function saveMemo(formData: FormData): Promise<{ success: boolean; 
     return { success: true };
   } catch {
     return { success: false, error: '저장 중 오류가 발생했습니다.' };
+  }
+}
+
+export async function deleteMemo(id: string): Promise<{ success: boolean; error?: string }> {
+  const user = await getCurrentProfile();
+  if (!user) return { success: false, error: '로그인이 필요합니다.' };
+  if (!id) return { success: false, error: '메모를 찾을 수 없습니다.' };
+
+  try {
+    await deleteMemoById(id, user.id);
+    revalidatePath('/memo');
+    return { success: true };
+  } catch {
+    return { success: false, error: '삭제 중 오류가 발생했습니다.' };
   }
 }

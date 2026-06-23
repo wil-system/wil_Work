@@ -22,6 +22,7 @@ function assertPersonalCalendarPolicies(sql: string) {
   const readPolicy = policy(sql, 'Users can read own events', 'select');
   const insertPolicy = policy(sql, 'Users can insert own events', 'insert');
   const updatePolicy = policy(sql, 'Users can update own events', 'update');
+  const deletePolicy = policy(sql, 'Users can delete own events', 'delete');
 
   assert.match(readPolicy, /is_work_approved\(\)/);
   assert.match(readPolicy, /created_by\s*=\s*auth\.uid\(\)/);
@@ -29,6 +30,8 @@ function assertPersonalCalendarPolicies(sql: string) {
   assert.match(insertPolicy, /with check[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
   assert.match(updatePolicy, /using[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
   assert.match(updatePolicy, /with check[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
+  assert.match(deletePolicy, /using[\s\S]*is_work_approved\(\)/i);
+  assert.match(deletePolicy, /using[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
   assert.equal(updatePolicy.includes('is_work_admin()'), false);
   assert.equal(/create policy "Approved users can read all events"/i.test(sql), false);
   assert.equal(/create policy "Creator or admin can update events"/i.test(sql), false);
@@ -45,7 +48,22 @@ test('latest calendar migration replaces shared event visibility with personal p
   const migration = read('supabase/migrations/20260622100000_personal_calendar_events.sql');
 
   assert.match(migration, /alter column created_by set default auth\.uid\(\)/);
-  assertPersonalCalendarPolicies(migration);
+  const readPolicy = policy(migration, 'Users can read own events', 'select');
+  const insertPolicy = policy(migration, 'Users can insert own events', 'insert');
+  const updatePolicy = policy(migration, 'Users can update own events', 'update');
+
+  assert.match(readPolicy, /is_work_approved\(\)/);
+  assert.match(readPolicy, /created_by\s*=\s*auth\.uid\(\)/);
+  assert.match(insertPolicy, /with check[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
+  assert.match(updatePolicy, /with check[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
+});
+
+test('latest calendar delete migration allows users to delete only own events', () => {
+  const migration = read('supabase/migrations/20260623100000_calendar_event_delete_policy.sql');
+  const deletePolicy = policy(migration, 'Users can delete own events', 'delete');
+
+  assert.match(deletePolicy, /using[\s\S]*is_work_approved\(\)/i);
+  assert.match(deletePolicy, /using[\s\S]*created_by\s*=\s*auth\.uid\(\)/i);
 });
 
 test('memo RLS keeps notes visible and mutable only by their author', () => {

@@ -6,14 +6,16 @@ import {
   CheckSquare2,
   ChevronLeft,
   ChevronRight,
+  Edit3,
   ListTodo,
   Plus,
   Square,
+  Trash2,
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
-import { createEvent, updateTodoCompletion } from '@/app/(workspace)/calendar/actions';
+import { createEvent, deleteEvent, updateEvent, updateTodoCompletion } from '@/app/(workspace)/calendar/actions';
 import {
   TODO_COLORS,
   buildTaskWeekRows,
@@ -131,6 +133,7 @@ interface TaskPanelProps {
   onSelectDate: (date: string) => void;
   onAddTodo: (date: string) => void;
   onToggleTodo: (todo: CalendarEvent) => void;
+  onEditTodo: (todo: CalendarEvent) => void;
   mode?: 'date' | 'list';
   emptyMessage?: string;
   className?: string;
@@ -146,6 +149,7 @@ function TaskPanel({
   onSelectDate,
   onAddTodo,
   onToggleTodo,
+  onEditTodo,
   mode = 'date',
   emptyMessage,
   className = 'card p-4',
@@ -293,13 +297,23 @@ function TaskPanel({
                         </p>
                       )}
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {isListMode && (
-                        <span className="text-[10px] font-semibold text-[var(--muted)]">
-                          {todo.date.replace(/-/g, '.')}
-                        </span>
-                      )}
-                      {completed && <Badge variant="green">완료</Badge>}
+                    <div className="flex shrink-0 items-start gap-1">
+                      <div className="flex flex-col items-end gap-1">
+                        {isListMode && (
+                          <span className="text-[10px] font-semibold text-[var(--muted)]">
+                            {todo.date.replace(/-/g, '.')}
+                          </span>
+                        )}
+                        {completed && <Badge variant="green">완료</Badge>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onEditTodo(todo)}
+                        className="rounded p-1 text-[var(--stone-500)] hover:bg-white/65 hover:text-[var(--foreground)]"
+                        aria-label={`${todo.title} 편집`}
+                      >
+                        <Edit3 size={13} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -318,8 +332,10 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [formMode, setFormMode] = useState<FormMode>('event');
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => getInitialTaskDate(initialYear, initialMonth));
   const [mobileTab, setMobileTab] = useState<MobileTab>('calendar');
@@ -393,6 +409,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
 
   function openFormForDate(dateStr = selectedDate, mode: FormMode = 'event') {
     const nextDate = dateStr || selectedDate;
+    setEditingEvent(null);
     setSelectedDate(nextDate);
     setFormMode(mode);
     setShowForm(true);
@@ -401,6 +418,28 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
 
   function openTodoForm(dateStr = selectedDate) {
     openFormForDate(dateStr, 'todo');
+  }
+
+  function openFormForItem(item: CalendarEvent) {
+    setEditingEvent(item);
+    setSelectedDate(item.date);
+    setFormMode(item.type === 'todo' ? 'todo' : 'event');
+    setShowForm(true);
+    setError('');
+  }
+
+  async function refreshCalendarForDate(dateStr: string) {
+    const nextDate = new Date(`${dateStr}T00:00:00`);
+    const nextYear = nextDate.getFullYear();
+    const nextMonth = nextDate.getMonth();
+    setSelectedDate(dateStr);
+    if (nextYear !== year || nextMonth !== month) {
+      setYear(nextYear);
+      setMonth(nextMonth);
+      await fetchEvents(nextYear, nextMonth);
+      return;
+    }
+    await fetchEvents(year, month);
   }
 
   async function handleToggleTodo(todo: CalendarEvent) {
@@ -415,26 +454,42 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
     setPendingTodoId('');
   }
 
-  async function handleCreateEvent(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSaveEvent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     const formData = new FormData(e.currentTarget);
-    const createdDate = (formData.get('date') as string ?? '').trim();
-    const createdType = formData.get('type');
-    const result = await createEvent(formData);
+    const savedDate = (formData.get('date') as string ?? '').trim();
+    const savedType = formData.get('type');
+    const result = editingEvent ? await updateEvent(formData) : await createEvent(formData);
     setSubmitting(false);
     if (result.success) {
       setShowForm(false);
-      if (createdType === 'todo' && createdDate) {
-        setSelectedDate(createdDate);
+      setEditingEvent(null);
+      if (savedType === 'todo') {
         setMobileTab('todo');
-      } else if (createdDate) {
-        setSelectedDate(createdDate);
       }
-      await fetchEvents(year, month);
+      await refreshCalendarForDate(savedDate || selectedDate);
     } else {
       setError(result.error ?? '오류가 발생했습니다.');
+    }
+  }
+
+  async function handleDeleteCalendarItem() {
+    if (!editingEvent) return;
+    const confirmed = window.confirm(`"${editingEvent.title}" 항목을 삭제할까요?\n삭제된 항목은 복구할 수 없습니다.`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    const result = await deleteEvent(editingEvent.id);
+    setDeleting(false);
+    if (result.success) {
+      setShowForm(false);
+      setEditingEvent(null);
+      await fetchEvents(year, month);
+    } else {
+      setError(result.error ?? '삭제 중 오류가 발생했습니다.');
     }
   }
 
@@ -459,7 +514,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
       ? todayDate.getDate()
       : -1;
   const isTodoForm = formMode === 'todo';
-  const formDateValue = selectedDate;
+  const formDateValue = editingEvent?.date ?? selectedDate;
 
   return (
     <>
@@ -619,10 +674,20 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                         {visibleListEvents.map(event => (
                           <div key={event.id} className="card p-4">
                             <div className="mb-1 flex items-start justify-between gap-2">
-                              <span className="text-[13px] font-semibold text-[var(--foreground)]">
+                              <span className="min-w-0 flex-1 text-[13px] font-semibold text-[var(--foreground)]">
                                 {event.title}
                               </span>
-                              <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                                <button
+                                  type="button"
+                                  onClick={() => openFormForItem(event)}
+                                  className="rounded p-1 text-[var(--stone-500)] hover:bg-[var(--stone-100)] hover:text-[var(--foreground)]"
+                                  aria-label={`${event.title} 편집`}
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                              </div>
                             </div>
                             <div className="text-[11px] text-[var(--muted)]">
                               {event.date.replace(/-/g, '.')}
@@ -654,6 +719,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                       onSelectDate={selectCalendarDate}
                       onAddTodo={openTodoForm}
                       onToggleTodo={handleToggleTodo}
+                      onEditTodo={openFormForItem}
                       mode="list"
                       emptyMessage="선택한 날짜의 할일이 없습니다."
                       className=""
@@ -713,10 +779,20 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                         {visibleListEvents.map(event => (
                           <div key={event.id} className="rounded-lg border bg-white px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
                             <div className="mb-1 flex items-start justify-between gap-2">
-                              <span className="text-[13px] font-semibold text-[var(--foreground)]">
+                              <span className="min-w-0 flex-1 text-[13px] font-semibold text-[var(--foreground)]">
                                 {event.title}
                               </span>
-                              <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Badge variant={TYPE_VARIANT[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+                                <button
+                                  type="button"
+                                  onClick={() => openFormForItem(event)}
+                                  className="rounded p-1 text-[var(--stone-500)] hover:bg-[var(--stone-100)] hover:text-[var(--foreground)]"
+                                  aria-label={`${event.title} 편집`}
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                              </div>
                             </div>
                             <div className="text-[11px] text-[var(--muted)]">
                               {event.date.replace(/-/g, '.')}
@@ -755,6 +831,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                       onSelectDate={selectCalendarDate}
                       onAddTodo={openTodoForm}
                       onToggleTodo={handleToggleTodo}
+                      onEditTodo={openFormForItem}
                       mode="list"
                       emptyMessage="선택한 날짜의 할일이 없습니다."
                       className=""
@@ -777,6 +854,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
           onSelectDate={selectCalendarDate}
           onAddTodo={openTodoForm}
           onToggleTodo={handleToggleTodo}
+          onEditTodo={openFormForItem}
           isActive={mobileTab === 'todo'}
         />
       </div>
@@ -789,12 +867,15 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
               style={{ borderColor: 'var(--line)' }}
             >
               <h2 className="text-[15px] font-bold text-[var(--foreground)]">
-                {isTodoForm ? '할일 추가' : '일정 추가'}
+                {editingEvent
+                  ? (isTodoForm ? '할일 편집' : '일정 편집')
+                  : (isTodoForm ? '할일 추가' : '일정 추가')}
               </h2>
               <button
                 type="button"
                 onClick={() => {
                   setShowForm(false);
+                  setEditingEvent(null);
                   setError('');
                 }}
                 className="rounded-lg p-1.5 hover:bg-[var(--stone-100)]"
@@ -803,7 +884,8 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                 <X size={16} className="text-[var(--muted)]" />
               </button>
             </div>
-            <form onSubmit={handleCreateEvent} className="space-y-4 p-6">
+            <form onSubmit={handleSaveEvent} className="space-y-4 p-6">
+              {editingEvent && <input type="hidden" name="id" value={editingEvent.id} />}
               {isTodoForm && <input type="hidden" name="type" value="todo" />}
               <div>
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-[var(--stone-600)]">
@@ -813,6 +895,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                   type="text"
                   name="title"
                   required
+                  defaultValue={editingEvent?.title ?? ''}
                   placeholder={isTodoForm ? '할일을 입력하세요' : '일정 제목'}
                   className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
@@ -851,7 +934,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                             type="radio"
                             name="todoColor"
                             value={color}
-                            defaultChecked={color === 'lemon'}
+                            defaultChecked={color === (editingEvent?.todoColor ?? 'lemon')}
                             className="sr-only"
                           />
                         </label>
@@ -868,7 +951,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                     </label>
                     <select
                       name="type"
-                      defaultValue="meeting"
+                      defaultValue={editingEvent && editingEvent.type !== 'todo' ? editingEvent.type : 'meeting'}
                       className="w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)]"
                       style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
                     >
@@ -883,6 +966,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                       type="checkbox"
                       name="allDay"
                       id="allDay"
+                      defaultChecked={editingEvent?.allDay ?? false}
                       className="h-4 w-4 rounded accent-[var(--indigo-600)]"
                     />
                     <label
@@ -901,6 +985,7 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                 <textarea
                   name="description"
                   rows={2}
+                  defaultValue={editingEvent?.description ?? ''}
                   placeholder={isTodoForm ? '할일 메모 (선택)' : '일정 설명 (선택)'}
                   className="w-full resize-none rounded-lg border px-3 py-2.5 text-[13px] outline-none focus:border-[var(--indigo-500)] focus:ring-2 focus:ring-[var(--indigo-100)]"
                   style={{ borderColor: 'var(--line)', background: 'var(--stone-50)' }}
@@ -911,21 +996,34 @@ export default function CalendarClient({ initialYear, initialMonth, initialEvent
                   <AlertCircle size={13} /> {error}
                 </div>
               )}
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+                {editingEvent && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteCalendarItem()}
+                    disabled={submitting || deleting}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-[13px] font-semibold text-[var(--danger)] hover:bg-[#fee2e2] disabled:opacity-60"
+                    style={{ borderColor: '#fecaca' }}
+                  >
+                    <Trash2 size={14} /> {deleting ? '삭제 중...' : '삭제'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setShowForm(false);
+                    setEditingEvent(null);
                     setError('');
                   }}
-                  className="flex-1 rounded-lg border py-2.5 text-[13px] font-medium hover:bg-[var(--stone-50)] transition-colors"
+                  disabled={submitting || deleting}
+                  className="flex-1 rounded-lg border py-2.5 text-[13px] font-medium hover:bg-[var(--stone-50)] transition-colors disabled:opacity-60"
                   style={{ borderColor: 'var(--line)', color: 'var(--foreground)' }}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || deleting}
                   className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold text-white hover:opacity-90 transition-all disabled:opacity-60"
                   style={{ background: 'var(--indigo-600)' }}
                 >

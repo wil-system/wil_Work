@@ -744,6 +744,12 @@ create policy "Users can update own events"
   using (is_work_approved() and created_by = auth.uid())
   with check (is_work_approved() and created_by = auth.uid());
 
+drop policy if exists "Users can delete own events" on work_calendar_events;
+create policy "Users can delete own events"
+  on work_calendar_events for delete
+  to authenticated
+  using (is_work_approved() and created_by = auth.uid());
+
 -- work_memos
 drop policy if exists "Users can read own memos" on work_memos;
 create policy "Users can read own memos"

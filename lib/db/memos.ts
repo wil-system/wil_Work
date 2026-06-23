@@ -60,3 +60,15 @@ export async function updateMemo(id: string, updates: Partial<Pick<Memo, 'title'
   }).eq('id', id);
   if (error) throw error;
 }
+
+export async function deleteMemoById(id: string, authorId: string): Promise<void> {
+  if (isDemoMode()) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('work_memos')
+    .delete()
+    .eq('id', id)
+    .eq('author_id', authorId);
+  if (error) throw error;
+}
