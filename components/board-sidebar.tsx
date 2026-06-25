@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Profile, Board } from '@/lib/types';
 import { useSidebar } from './sidebar-context';
 import { orderBoardsForSidebar } from '@/lib/board-order';
+import { FEED_RESET_EVENT } from '@/lib/feed-events';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard, TrendingUp, Code2, Megaphone, Bell, Dot,
@@ -54,6 +55,15 @@ export default function BoardSidebar({
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
 
+  function handleFeedSelect(event: React.MouseEvent<HTMLAnchorElement>) {
+    close();
+    if (pathname === '/feed') {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent(FEED_RESET_EVENT));
+      router.refresh();
+    }
+  }
+
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
@@ -78,7 +88,7 @@ export default function BoardSidebar({
     >
       {/* Logo area */}
       <div className="relative px-5 pt-5 pb-4 overflow-hidden">
-        <Link href="/feed" onClick={close} className="relative block">
+        <Link href="/feed" onClick={handleFeedSelect} className="relative block">
           <div className="flex items-end gap-1.5 whitespace-nowrap">
             <span
               className="text-[15px] font-black leading-none"
@@ -119,7 +129,13 @@ export default function BoardSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-        <NavItem href="/feed" icon={LayoutDashboard} label="전체 피드" active={isActive('/feed')} onSelect={close} />
+        <NavItem
+          href="/feed"
+          icon={LayoutDashboard}
+          label="전체 피드"
+          active={isActive('/feed')}
+          onSelect={handleFeedSelect}
+        />
 
         <div className="mt-3">
           <button
@@ -280,7 +296,7 @@ function NavItem({
   label: string;
   active: boolean;
   nested?: boolean;
-  onSelect?: () => void;
+  onSelect?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link

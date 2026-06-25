@@ -24,6 +24,7 @@ import {
   type ComposerTokenTrigger,
 } from '@/lib/chat-composer-tokens';
 import { getClientErrorMessage } from '@/lib/client-error-message';
+import { FEED_RESET_EVENT } from '@/lib/feed-events';
 import { createClient } from '@/lib/supabase/client';
 import { renderRichText } from '@/lib/rich-text';
 import type { BoardRole, FeedDateCount, Post, Attachment } from '@/lib/types';
@@ -1112,7 +1113,7 @@ export default function ChatFeed({
     }
   }
 
-  function handleClearDate() {
+  const handleClearDate = useCallback(() => {
     setAnchorDate(null);
     setPosts(sortPostsAscending(initialPosts));
     setHasMoreOlder(initialHasMoreOlder);
@@ -1120,7 +1121,12 @@ export default function ChatFeed({
     const sorted = sortPostsAscending(initialPosts);
     setActiveDate(sorted.length > 0 ? getPostDateKey(sorted[sorted.length - 1]) : null);
     requestAnimationFrame(() => scrollFeedToBottom('instant'));
-  }
+  }, [initialHasMoreOlder, initialPosts, scrollFeedToBottom]);
+
+  useEffect(() => {
+    window.addEventListener(FEED_RESET_EVENT, handleClearDate);
+    return () => window.removeEventListener(FEED_RESET_EVENT, handleClearDate);
+  }, [handleClearDate]);
 
   function handleJumpLatest() {
     handleClearDate();

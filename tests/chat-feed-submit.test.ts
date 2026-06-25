@@ -48,7 +48,7 @@ test('selected feed calendar date loads only that day', () => {
   const nextFromSelectedEnd = component.indexOf('function updateActiveDateFromScroll');
   const loadNextFromSelectedDate = component.slice(nextFromSelectedStart, nextFromSelectedEnd);
   const selectDateStart = component.indexOf('async function handleSelectDate');
-  const selectDateEnd = component.indexOf('function handleClearDate');
+  const selectDateEnd = component.indexOf('const handleClearDate = useCallback');
   const handleSelectDate = component.slice(selectDateStart, selectDateEnd);
 
   assert.ok(nextFromSelectedStart > -1, 'selected date pagination handler should exist');
@@ -88,4 +88,25 @@ test('selected feed calendar date can change from scroll bottom while browsing a
   assert.ok(scrollStart > -1, 'scroll handler should exist');
   assert.ok(scrollEnd > scrollStart, 'date selection handler should follow scroll handler');
   assert.match(handleScroll, /const el = e\.currentTarget;\s+updateActiveDateFromScroll\(el\);\s+if \(anchorDate\)/);
+});
+
+test('feed reset event returns a selected calendar date to the initial feed window', () => {
+  const component = readFileSync('components/chat-feed.tsx', 'utf8');
+  const clearStart = component.indexOf('const handleClearDate = useCallback');
+  const clearEnd = component.indexOf('function handleJumpLatest');
+  const handleClearDate = component.slice(clearStart, clearEnd);
+  const resetStart = component.indexOf('window.addEventListener(FEED_RESET_EVENT, handleClearDate)');
+  const resetEnd = component.indexOf('async function handleSelectPinnedPost');
+  const resetEffect = component.slice(resetStart, resetEnd);
+
+  assert.ok(clearStart > -1, 'feed clear handler should be memoized for event reuse');
+  assert.ok(clearEnd > clearStart, 'jump latest handler should follow clear handler');
+  assert.match(component, /import \{ FEED_RESET_EVENT \} from '@\/lib\/feed-events';/);
+  assert.match(handleClearDate, /setAnchorDate\(null\)/);
+  assert.match(handleClearDate, /setPosts\(sortPostsAscending\(initialPosts\)\)/);
+  assert.match(handleClearDate, /setHasMoreOlder\(initialHasMoreOlder\)/);
+  assert.match(handleClearDate, /setHasMoreAfterDate\(false\)/);
+  assert.match(handleClearDate, /scrollFeedToBottom\('instant'\)/);
+  assert.match(resetEffect, /window\.addEventListener\(FEED_RESET_EVENT, handleClearDate\)/);
+  assert.match(resetEffect, /window\.removeEventListener\(FEED_RESET_EVENT, handleClearDate\)/);
 });

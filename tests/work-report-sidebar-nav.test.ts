@@ -50,7 +50,22 @@ test('sidebar brand opens the main feed', () => {
   const brandBlock = sidebarSource.match(/<Link\s+href="\/feed"[\s\S]*?SPACE[\s\S]*?>\s*W\s*<\/span>[\s\S]*?<\/Link>/)?.[0] ?? '';
 
   assert.notEqual(brandBlock, '');
-  assert.match(brandBlock, /onClick=\{close\}/);
+  assert.match(brandBlock, /onClick=\{handleFeedSelect\}/);
+});
+
+test('feed sidebar links reset the feed view when already on the feed page', () => {
+  const sidebarSource = readFileSync(resolve('components/board-sidebar.tsx'), 'utf8');
+  const feedNav = sidebarSource.match(/<NavItem\s*\r?\n\s*href="\/feed"[\s\S]*?\/>/)?.[0] ?? '';
+  const feedEventsSource = readFileSync(resolve('lib/feed-events.ts'), 'utf8');
+
+  assert.match(sidebarSource, /import \{ FEED_RESET_EVENT \} from '@\/lib\/feed-events';/);
+  assert.match(sidebarSource, /function handleFeedSelect\(event: React\.MouseEvent<HTMLAnchorElement>\)/);
+  assert.match(sidebarSource, /if \(pathname === '\/feed'\)/);
+  assert.match(sidebarSource, /event\.preventDefault\(\)/);
+  assert.match(sidebarSource, /window\.dispatchEvent\(new CustomEvent\(FEED_RESET_EVENT\)\)/);
+  assert.match(sidebarSource, /router\.refresh\(\)/);
+  assert.match(feedNav, /onSelect=\{handleFeedSelect\}/);
+  assert.match(feedEventsSource, /export const FEED_RESET_EVENT = 'wil:reset-feed-view';/);
 });
 
 test('sidebar does not expose notification and settings menu links', () => {
